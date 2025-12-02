@@ -122,8 +122,6 @@ function setupEventListeners() {
     // Canvas Mode Switch
     document.getElementById('cv-mode-pointer').onclick = () => window.toggleCanvasMode('edit');
     document.getElementById('cv-mode-pan').onclick = () => window.toggleCanvasMode('pan');
-    // 追加: ノード接続モード
-    document.getElementById('cv-mode-connect').onclick = () => window.toggleCanvasMode('connect');
 
     document.onclick = (e) => {
         if(e.target === els.switcherOverlay) window.closeSwitcher();

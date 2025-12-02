@@ -87,6 +87,8 @@ body.privacy-active .editor-header input { filter: blur(4px); }
 #canvas-area.mode-pan { cursor: grab; }
 #canvas-area.mode-pan:active { cursor: grabbing; }
 
+#cv-mode-connect { display: none; }
+
 /* 接続待機モード */
 #canvas-area.connecting-mode .canvas-node { cursor: crosshair !important; border-color: var(--accent-color) !important; }
 #canvas-area.connecting-mode { cursor: crosshair; }
@@ -158,6 +160,32 @@ body.privacy-active .editor-header input { filter: blur(4px); }
 .canvas-edge { stroke: #666; stroke-width: 2; fill: none; pointer-events: visibleStroke; cursor: pointer; }
 .canvas-edge:hover { stroke: #999; stroke-width: 3; }
 .canvas-edge.temp { stroke-dasharray: 5,5; opacity: 0.6; pointer-events: none; }
+
+.anchor-point {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 50%;
+    cursor: crosshair;
+    z-index: 30;
+    transition: transform 0.1s, background 0.1s;
+}
+.anchor-point:hover { background: var(--accent-color); transform: scale(1.1); }
+.anchor-top { top: -6px; left: 50%; transform: translate(-50%, 0); }
+.anchor-right { right: -6px; top: 50%; transform: translate(0, -50%); }
+.anchor-bottom { bottom: -6px; left: 50%; transform: translate(-50%, 0); }
+.anchor-left { left: -6px; top: 50%; transform: translate(0, -50%); }
+
+.canvas-node.type-note { background: #20242e; border: 1px solid #3d4254; color: #dce5ff; }
+.note-node-body { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.note-node-title { font-weight: bold; color: #c5d4ff; }
+.note-node-preview { font-size: 0.85em; color: #9fb0d6; line-height: 1.4; }
+
+.canvas-node.type-media { background: #111; border: 1px solid #444; }
+.media-node-body { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 6px; box-sizing: border-box; }
+.media-node-body img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; border: 1px solid #333; }
 
 #canvas-controls { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 5px; z-index: 100; }
 #canvas-info { margin-left: 10px; color: #666; align-self: center; font-size: 0.8em; user-select: none; }

@@ -4,6 +4,36 @@
 
 const generateId = () => 'node-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 
+const CANVAS_ANCHORS = ['top', 'right', 'bottom', 'left'];
+
+function getAnchorPosition(node, anchor) {
+    if (!node) return { x: 0, y: 0 };
+    switch(anchor) {
+        case 'top': return { x: node.x + node.w / 2, y: node.y };
+        case 'right': return { x: node.x + node.w, y: node.y + node.h / 2 };
+        case 'bottom': return { x: node.x + node.w / 2, y: node.y + node.h };
+        case 'left': return { x: node.x, y: node.y + node.h / 2 };
+        default: return { x: node.x + node.w / 2, y: node.y + node.h / 2 };
+    }
+}
+
+function getNearestAnchor(node, x, y, threshold = 20) {
+    let best = null;
+    CANVAS_ANCHORS.forEach(a => {
+        const p = getAnchorPosition(node, a);
+        const dist = Math.hypot(p.x - x, p.y - y);
+        if (dist <= threshold && (!best || dist < best.dist)) best = { anchor: a, dist };
+    });
+    return best ? best.anchor : null;
+}
+
+function snapToGrid(value, grid = 20, tolerance = 4) {
+    const mod = value % grid;
+    if (mod <= tolerance) return value - mod;
+    if (grid - mod <= tolerance) return value + (grid - mod);
+    return value;
+}
+
 window.createNewCanvas = function() {
     const n = prompt("新規キャンバス名:");
     if (n) {
@@ -59,12 +89,12 @@ window.renderCanvas = function() {
     // モードに応じたUIカーソルの変更
     if (state.canvasMode === 'connect' || state.pendingConnectNodeId) {
         area.classList.add('connecting-mode');
-        document.getElementById('canvas-info').textContent = state.pendingConnectNodeId 
-            ? "Click target node to connect" 
+        document.getElementById('canvas-info').textContent = state.pendingConnectNodeId
+            ? "Click target node to connect"
             : "Click source node to start connection";
     } else {
         area.classList.remove('connecting-mode');
-        document.getElementById('canvas-info').textContent = "Double Click: Add Node | Shift+Drag: Connect";
+        document.getElementById('canvas-info').textContent = "アンカーをドラッグして接続 / ダブルクリックで付箋";
     }
 
     // 1. Render Nodes
@@ -74,11 +104,15 @@ window.renderCanvas = function() {
         el.id = node.id;
         el.className = `canvas-node type-${node.type || 'text'}`;
         if (node.locked) el.classList.add('locked'); // 固定スタイル用クラス
-        
+
         el.style.left = node.x + 'px';
         el.style.top = node.y + 'px';
         el.style.width = node.w + 'px';
         el.style.height = node.h + 'px';
+
+        if (node.type === 'text' && node.color) {
+            el.style.backgroundColor = node.color;
+        }
         
         if (node.type === 'group' && node.color) {
             el.style.backgroundColor = node.color;
@@ -105,6 +139,20 @@ window.renderCanvas = function() {
             label.style.fontWeight = 'bold';
             label.innerText = node.text || 'Group';
             el.appendChild(label);
+        } else if (node.type === 'note') {
+            const body = document.createElement('div');
+            body.className = 'note-node-body';
+            body.innerHTML = `<div class="note-node-title">📄 ${window.escapeHTML(node.title || 'Untitled')}</div><div class="note-node-preview">${window.escapeHTML((state.notes[node.title] || '').slice(0,80))}</div>`;
+            body.ondblclick = () => window.loadNote(node.title || '');
+            el.appendChild(body);
+        } else if (node.type === 'media') {
+            const body = document.createElement('div');
+            body.className = 'media-node-body';
+            const img = document.createElement('img');
+            img.src = node.src || '';
+            img.alt = node.title || 'media';
+            body.appendChild(img);
+            el.appendChild(body);
         } else {
             const text = document.createElement('textarea');
             text.value = node.text || '';
@@ -135,6 +183,15 @@ window.renderCanvas = function() {
             el.appendChild(resize);
         }
 
+        // 接続アンカー
+        CANVAS_ANCHORS.forEach(anchor => {
+            const a = document.createElement('div');
+            a.className = `anchor-point anchor-${anchor}`;
+            a.dataset.anchor = anchor;
+            a.onmousedown = (e) => window.startAnchorDrag(e, node.id, anchor);
+            el.appendChild(a);
+        });
+
         el.oncontextmenu = (e) => window.showCanvasContextMenu(e, 'node', node.id);
         nodesEl.appendChild(el);
     });
@@ -152,35 +209,46 @@ window.renderCanvas = function() {
     });
 
     if (state.isConnecting && state.tempLine) {
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', state.tempLine.x1);
-        line.setAttribute('y1', state.tempLine.y1);
-        line.setAttribute('x2', state.tempLine.x2);
-        line.setAttribute('y2', state.tempLine.y2);
-        line.setAttribute('class', 'canvas-edge temp');
-        line.setAttribute('marker-end', 'url(#arrowhead)');
-        svgEl.appendChild(line);
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const { x1, y1, x2, y2 } = state.tempLine;
+        const cx1 = x1 + (x2 - x1) * 0.25;
+        const cy1 = y1 + (y2 - y1) * 0.1;
+        const cx2 = x1 + (x2 - x1) * 0.75;
+        const cy2 = y1 + (y2 - y1) * 0.9;
+        path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
+        path.setAttribute('class', 'canvas-edge temp');
+        path.setAttribute('marker-end', 'url(#arrowhead)');
+        svgEl.appendChild(path);
     }
 };
 
 window.drawEdge = function(svg, n1, n2, edgeId) {
-    const x1 = n1.x + n1.w / 2;
-    const y1 = n1.y + n1.h / 2;
-    const x2 = n2.x + n2.w / 2;
-    const y2 = n2.y + n2.h / 2;
+    const start = getAnchorPosition(n1, edge.fromAnchor);
+    const end = getAnchorPosition(n2, edge.toAnchor);
 
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', x1);
-    line.setAttribute('y1', y1);
-    line.setAttribute('x2', x2);
-    line.setAttribute('y2', y2);
-    line.setAttribute('class', 'canvas-edge');
-    line.setAttribute('marker-end', 'url(#arrowhead)');
-    line.oncontextmenu = (e) => {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const cx1 = start.x + (end.x - start.x) * 0.25;
+    const cy1 = start.y + (end.y - start.y) * 0.1;
+    const cx2 = start.x + (end.x - start.x) * 0.75;
+    const cy2 = start.y + (end.y - start.y) * 0.9;
+    path.setAttribute('d', `M ${start.x} ${start.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${end.x} ${end.y}`);
+    path.setAttribute('class', 'canvas-edge');
+    path.setAttribute('marker-end', 'url(#arrowhead)');
+    path.oncontextmenu = (e) => {
         e.preventDefault(); e.stopPropagation();
         window.showCanvasContextMenu(e, 'edge', edgeId);
     };
-    svg.appendChild(line);
+    svg.appendChild(path);
+};
+
+window.startAnchorDrag = function(e, nodeId, anchor) {
+    e.stopPropagation();
+    state.isConnecting = true;
+    state.dragNodeId = nodeId;
+    state.connectStart = { nodeId, anchor };
+    const node = state.canvasData.nodes.find(n => n.id === nodeId);
+    const start = getAnchorPosition(node, anchor);
+    state.tempLine = { x1: start.x, y1: start.y, x2: start.x, y2: start.y };
 };
 
 window.startDragNode = function(e, id) {
@@ -195,7 +263,7 @@ window.startDragNode = function(e, id) {
         } else {
             // 2つ目のノード選択（接続実行）
             if (state.pendingConnectNodeId !== id) {
-                 window.tryConnectNodes(state.pendingConnectNodeId, id);
+                 window.tryConnectNodes(state.pendingConnectNodeId, id, 'center', 'center');
                  // 連続接続のため、pendingをクリア（または次の始点にする場合は id をセットするが、今回はクリア）
                  state.pendingConnectNodeId = null; 
                  window.renderCanvas();
@@ -208,7 +276,7 @@ window.startDragNode = function(e, id) {
     // 既存の接続待機処理（Shift+Clickやメニューからの接続）
     if (state.pendingConnectNodeId) {
         if (state.pendingConnectNodeId !== id) {
-             window.tryConnectNodes(state.pendingConnectNodeId, id);
+             window.tryConnectNodes(state.pendingConnectNodeId, id, 'center', 'center');
              state.pendingConnectNodeId = null;
              window.renderCanvas();
              window.saveCanvasData();
@@ -245,7 +313,7 @@ window.startDragNode = function(e, id) {
 };
 
 // 接続のバリデーションと実行を行うヘルパー関数
-window.tryConnectNodes = function(sourceId, targetId) {
+window.tryConnectNodes = function(sourceId, targetId, fromAnchor = 'center', toAnchor = 'center') {
     const source = state.canvasData.nodes.find(n => n.id === sourceId);
     const target = state.canvasData.nodes.find(n => n.id === targetId);
     
@@ -260,7 +328,9 @@ window.tryConnectNodes = function(sourceId, targetId) {
     state.canvasData.edges.push({
         id: generateId(),
         fromNode: sourceId,
-        toNode: targetId
+        toNode: targetId,
+        fromAnchor,
+        toAnchor
     });
 };
 
@@ -297,8 +367,8 @@ window.handleCanvasMouseMove = function(e) {
         const dy = (e.clientY - state.dragStart.y) / zoom;
         const node = state.canvasData.nodes.find(n => n.id === state.dragNodeId);
         if (node && !node.locked) {
-            node.x += dx;
-            node.y += dy;
+            node.x = snapToGrid(node.x + dx);
+            node.y = snapToGrid(node.y + dy);
             state.dragStart = { x: e.clientX, y: e.clientY };
             window.renderCanvas();
         }
@@ -307,16 +377,28 @@ window.handleCanvasMouseMove = function(e) {
         const dy = (e.clientY - state.dragStart.y) / zoom;
         const node = state.canvasData.nodes.find(n => n.id === state.dragNodeId);
         if (node && !node.locked) {
-            node.w = Math.max(50, state.resizeStart.w + dx);
-            node.h = Math.max(30, state.resizeStart.h + dy);
+            node.w = snapToGrid(Math.max(50, state.resizeStart.w + dx));
+            node.h = snapToGrid(Math.max(30, state.resizeStart.h + dy));
             window.renderCanvas();
         }
     } else if (state.isConnecting) {
         const rect = document.getElementById('canvas-area').getBoundingClientRect();
         const mx = (e.clientX - rect.left - state.canvasData.x) / zoom;
         const my = (e.clientY - rect.top - state.canvasData.y) / zoom;
-        state.tempLine.x2 = mx;
-        state.tempLine.y2 = my;
+        const target = state.canvasData.nodes.find(n =>
+            n.id !== state.dragNodeId && mx >= n.x - 10 && mx <= n.x + n.w + 10 && my >= n.y - 10 && my <= n.y + n.h + 10
+        );
+        if (target) {
+            const anchor = getNearestAnchor(target, mx, my, 25) || 'center';
+            const pos = getAnchorPosition(target, anchor);
+            state.tempLine.x2 = pos.x;
+            state.tempLine.y2 = pos.y;
+            state.tempLine.toAnchor = anchor;
+        } else {
+            state.tempLine.x2 = mx;
+            state.tempLine.y2 = my;
+            state.tempLine.toAnchor = null;
+        }
         window.renderCanvas();
     } else if (state.isDraggingCanvas) {
         const dx = e.clientX - state.dragStart.x;
@@ -329,16 +411,24 @@ window.handleCanvasMouseMove = function(e) {
 };
 
 window.handleCanvasMouseUp = function(e) {
-    // Shift+Drag での接続完了処理
+    // 接続完了処理（Shiftドラッグ・アンカードラッグ共通）
     if (state.isConnecting) {
         const rect = document.getElementById('canvas-area').getBoundingClientRect();
         const mx = (e.clientX - rect.left - state.canvasData.x) / state.canvasData.zoom;
         const my = (e.clientY - rect.top - state.canvasData.y) / state.canvasData.zoom;
-        const target = state.canvasData.nodes.find(n => 
-            n.id !== state.dragNodeId && mx >= n.x && mx <= n.x + n.w && my >= n.y && my <= n.y + n.h
+        const target = state.canvasData.nodes.find(n =>
+            n.id !== state.dragNodeId && mx >= n.x - 15 && mx <= n.x + n.w + 15 && my >= n.y - 15 && my <= n.y + n.h + 15
         );
         if (target) {
-            window.tryConnectNodes(state.dragNodeId, target.id);
+            const anchor = getNearestAnchor(target, mx, my, 25) || 'center';
+            window.tryConnectNodes(
+                state.connectStart?.nodeId || state.dragNodeId,
+                target.id,
+                state.connectStart?.anchor || 'center',
+                anchor
+            );
+        } else if (state.connectStart) {
+            window.showConnectionCreateMenu(e.clientX, e.clientY, mx, my, state.connectStart);
         }
     }
 
@@ -352,6 +442,7 @@ window.handleCanvasMouseUp = function(e) {
     state.isConnecting = false;
     state.dragNodeId = null;
     state.tempLine = null;
+    state.connectStart = null;
     
     // カーソルリセット
     const area = document.getElementById('canvas-area');
@@ -410,7 +501,7 @@ window.addCanvasGroup = function() {
 };
 
 window.toggleCanvasMode = function(mode) {
-    state.canvasMode = mode;
+    state.canvasMode = mode === 'connect' ? 'edit' : mode;
     state.pendingConnectNodeId = null; // モード切替時は待機状態を解除
     window.updateCanvasModeUI();
     window.renderCanvas();
@@ -419,19 +510,15 @@ window.toggleCanvasMode = function(mode) {
 window.updateCanvasModeUI = function() {
     const ptr = document.getElementById('cv-mode-pointer');
     const pan = document.getElementById('cv-mode-pan');
-    const conn = document.getElementById('cv-mode-connect');
     const area = document.getElementById('canvas-area');
-    
+
     // 全ボタンの非アクティブ化
-    [ptr, pan, conn].forEach(b => b && b.classList.remove('btn-active'));
+    [ptr, pan].forEach(b => b && b.classList.remove('btn-active'));
     area.classList.remove('mode-pan');
 
     if (state.canvasMode === 'pan') {
         if(pan) pan.classList.add('btn-active');
         area.classList.add('mode-pan');
-    } else if (state.canvasMode === 'connect') {
-        if(conn) conn.classList.add('btn-active');
-        // カーソルはrenderCanvasで制御
     } else {
         if(ptr) ptr.classList.add('btn-active');
     }
@@ -477,7 +564,26 @@ window.showCanvasContextMenu = function(e, type, id) {
                  };
                  p.appendChild(s);
              });
-             m.appendChild(document.createElement('div').appendChild(document.createTextNode("🎨 色変更:")));
+            m.appendChild(document.createElement('div').appendChild(document.createTextNode("🎨 色変更:")));
+            m.appendChild(p);
+        } else if (node.type === 'text') {
+             const p = document.createElement('div');
+             p.className = 'color-palette';
+             window.CANVAS_COLORS.forEach(c => {
+                 const s = document.createElement('div');
+                 s.className = 'color-swatch';
+                 s.style.backgroundColor = c;
+                 s.onclick = (e) => {
+                     e.stopPropagation();
+                     if(node.locked) return alert("固定されています");
+                     node.color = c;
+                     window.renderCanvas();
+                     window.saveCanvasData();
+                     m.style.display = 'none';
+                 };
+                 p.appendChild(s);
+             });
+             m.appendChild(document.createElement('div').appendChild(document.createTextNode("🎨 背景色:")));
              m.appendChild(p);
         }
         
@@ -503,3 +609,36 @@ window.showCanvasContextMenu = function(e, type, id) {
     m.style.left = e.pageX + 'px';
     m.style.display = 'block';
 }
+
+window.showConnectionCreateMenu = function(screenX, screenY, canvasX, canvasY, startInfo) {
+    const m = document.getElementById('context-menu');
+    m.innerHTML = "";
+    const createAndConnect = (type) => {
+        let node;
+        if (type === 'note') {
+            const title = prompt('ノート名を入力してください');
+            if (!title) return;
+            if (!state.notes[title]) state.notes[title] = '';
+            node = { id: generateId(), type: 'note', title, x: canvasX - 75, y: canvasY - 40, w: 180, h: 100 };
+        } else if (type === 'media') {
+            const src = prompt('画像/メディアのURLを入力してください');
+            if (!src) return;
+            node = { id: generateId(), type: 'media', src, title: 'media', x: canvasX - 90, y: canvasY - 60, w: 180, h: 120 };
+        } else {
+            node = { id: generateId(), type: 'text', text: '', x: canvasX - 75, y: canvasY - 40, w: 150, h: 80 };
+        }
+        state.canvasData.nodes.push(node);
+        const anchor = getNearestAnchor(node, canvasX, canvasY, 100) || 'center';
+        window.tryConnectNodes(startInfo?.nodeId, node.id, startInfo?.anchor || 'center', anchor);
+        window.renderCanvas();
+        window.saveCanvasData();
+        m.style.display = 'none';
+    };
+
+    window.addMenu(m, '🗒 新規付箋', () => createAndConnect('text'));
+    window.addMenu(m, '📄 ノートを置く', () => createAndConnect('note'));
+    window.addMenu(m, '🖼 メディアを置く', () => createAndConnect('media'));
+    m.style.top = screenY + 'px';
+    m.style.left = screenX + 'px';
+    m.style.display = 'block';
+};
