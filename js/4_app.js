@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.settings = { ...window.DEFAULT_SETTINGS, ...savedSettings };
     state.isSidebarCollapsed = localStorage.getItem(window.CONFIG.SIDEBAR_KEY) === '1';
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
+    state.clipboardHistory = window.readJson(window.CONFIG.CLIPBOARD_KEY, []);
 
     const savedTabs = window.readJson(window.CONFIG.TABS_KEY, null);
     if (Array.isArray(savedTabs) && savedTabs.length) {
@@ -53,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     window.refreshTemplateSources();
     window.applySidebarState();
+    window.lazyInitHeavyFeatures();
 
     // ウィンドウを閉じるときに確認ダイアログを表示
     window.onbeforeunload = function(e) {
@@ -70,6 +72,10 @@ function setupEventListeners() {
         window.saveData();
         window.updateStatusBar();
         if (state.isSplit && !state.isDashboard) window.renderPreview();
+    });
+    document.addEventListener('copy', () => {
+        const selected = document.getSelection()?.toString() || '';
+        window.captureClipboard(selected.trim().slice(0, 500));
     });
     els.editor.addEventListener('paste', window.handlePaste);
     els.editor.addEventListener('keydown', window.handleEditorKeydown);

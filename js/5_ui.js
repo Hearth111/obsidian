@@ -5,6 +5,8 @@
 // NOTE: This file assumes els and state are defined on the window object
 // by 4_app.js (or globally available).
 
+let searchDebounce = null;
+
 // --- Editor & Content Helpers ---
 
 window.handlePaste = async function (e) {
@@ -690,14 +692,50 @@ window.handleSearch = function() {
     const list = document.getElementById('search-list');
     if (!q) { area.style.display = 'none'; return; }
     area.style.display = 'block';
-    list.innerHTML = "";
-    Object.keys(state.notes).filter(k => k.toLowerCase().includes(q) || state.notes[k].toLowerCase().includes(q)).forEach(p => {
-        const d = document.createElement('div');
-        d.className = 'tree-item';
-        d.textContent = p;
-        d.onclick = () => window.loadNote(p);
-        list.appendChild(d);
-    });
+    list.innerHTML = "検索中...";
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(async () => {
+        const matches = await window.searchNotes(q);
+        list.innerHTML = "";
+        matches.slice(0, 120).forEach(p => {
+            const d = document.createElement('div');
+            d.className = 'tree-item';
+            d.textContent = p;
+            d.onclick = () => window.loadNote(p);
+            list.appendChild(d);
+        });
+        if (list.children.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'tree-item';
+            empty.textContent = '該当なし';
+            list.appendChild(empty);
+        }
+    }, 150);
+};
+
+window.insertFromClipboardHistory = function() {
+    const items = state.clipboardHistory || [];
+    if (!items.length) {
+        alert('クリップボード履歴がありません');
+        return;
+    }
+    const menu = items.map((t, i) => `${i + 1}. ${t.slice(0, 80)}`).join('\n');
+    const pick = prompt(`貼り付けたい履歴の番号を入力:\n${menu}`);
+    const idx = parseInt(pick, 10) - 1;
+    if (Number.isNaN(idx) || idx < 0 || idx >= items.length) return;
+    const text = items[idx];
+    const target = els.editor;
+    const start = target.selectionStart;
+    const end = target.selectionEnd;
+    const before = target.value.slice(0, start);
+    const after = target.value.slice(end);
+    target.value = `${before}${text}${after}`;
+    target.selectionStart = target.selectionEnd = start + text.length;
+    target.focus();
+    state.notes[state.currentTitle] = target.value;
+    window.captureClipboard(text);
+    window.saveData();
+    if (state.isSplit || state.isPreview) window.renderPreview();
 };
 
 window.openPhraseLinks = function(rawPhrase) {
