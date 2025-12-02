@@ -11,6 +11,37 @@ window.CONFIG = {
     KEYMAP_KEY: 'obsidian_v35_keymap'
 };
 
+window.readJson = function(key, fallback) {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    try {
+        return JSON.parse(raw);
+    } catch (err) {
+        console.warn(`Failed to parse ${key} from localStorage`, err);
+        return fallback;
+    }
+};
+
+window.writeJson = function(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch (err) {
+        console.error(`Failed to persist ${key} to localStorage`, err);
+    }
+};
+
+window.showBackupStatus = function(message, duration = 3000) {
+    const statusEl = document.getElementById('backup-status');
+    if (!statusEl) return;
+
+    statusEl.textContent = message;
+    if (duration) {
+        setTimeout(() => {
+            if (statusEl.textContent === message) statusEl.textContent = '';
+        }, duration);
+    }
+};
+
 window.TEMPLATES = {
     'meeting': `## 議事録\n- 日時: \n- 参加者: \n\n### 議題\n1. \n\n### 決定事項\n- \n\n### Next Action\n- [ ] `,
     'bug': `## バグ報告\n- 発生環境: \n- 再現手順:\n  1. \n  2. \n- 期待値: \n- 実際の結果: \n`

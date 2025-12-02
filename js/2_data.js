@@ -4,8 +4,8 @@
 
 // Ensure state is accessed via 'window.state' or just 'state' (since it's on window)
 
-window.saveData = function() { 
-    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state.notes)); 
+window.saveData = function() {
+    window.writeJson(CONFIG.STORAGE_KEY, state.notes);
     state.isModified = true; // NEW: Mark state as modified after any edit to localStorage
 };
 
@@ -22,18 +22,15 @@ window.exportData = function(filename) {
     const d = document.createElement('a');
     d.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
     d.download = filename || `backup_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(d); 
-    d.click(); 
+    document.body.appendChild(d);
+    d.click();
     d.remove();
 
     // NEW: Update status and reset modified flag on manual save (export)
-    state.isModified = false; 
-    const statusEl = document.getElementById('backup-status');
-    if(statusEl) {
-        const date = new Date();
-        statusEl.textContent = "Saved: " + ('0'+date.getHours()).slice(-2) + ":" + ('0'+date.getMinutes()).slice(-2);
-        setTimeout(() => statusEl.textContent = "", 3000);
-    }
+    state.isModified = false;
+    const date = new Date();
+    const msg = "Saved: " + ('0'+date.getHours()).slice(-2) + ":" + ('0'+date.getMinutes()).slice(-2);
+    window.showBackupStatus(msg);
 };
 
 window.importData = async function(e) {
@@ -64,10 +61,10 @@ window.importData = async function(e) {
 
             // Write to LocalStorage
             window.saveData();
-            localStorage.setItem(CONFIG.IMAGES_KEY, JSON.stringify(state.images));
-            localStorage.setItem(CONFIG.BOOKMARKS_KEY, JSON.stringify(state.bookmarks));
-            localStorage.setItem(CONFIG.EXPANDED_KEY, JSON.stringify(state.expandedFolders));
-            localStorage.setItem(CONFIG.KEYMAP_KEY, JSON.stringify(state.keymap));
+            window.writeJson(CONFIG.IMAGES_KEY, state.images);
+            window.writeJson(CONFIG.BOOKMARKS_KEY, state.bookmarks);
+            window.writeJson(CONFIG.EXPANDED_KEY, state.expandedFolders);
+            window.writeJson(CONFIG.KEYMAP_KEY, state.keymap);
 
             // NEW: Reset modified flag on import
             state.isModified = false;

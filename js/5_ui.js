@@ -50,7 +50,7 @@ window.handlePaste = async function (e) {
     // ---- 3) 画像IDを発行し localStorage に保存 ----
     const id = "img-" + Date.now();
     state.images[id] = dataUrl;
-    localStorage.setItem(window.CONFIG.IMAGES_KEY, JSON.stringify(state.images));
+    window.writeJson(window.CONFIG.IMAGES_KEY, state.images);
 
     // ---- 4) Markdown 挿入文字列 ----
     const insertText = `![image](${id})`;
@@ -155,7 +155,10 @@ window.createTreeDom = function(node) {
         } else { 
             const det = document.createElement('details');
             if (state.expandedFolders[item.__path]) det.open = true;
-            det.ontoggle = () => { state.expandedFolders[item.__path] = det.open; localStorage.setItem(window.CONFIG.EXPANDED_KEY, JSON.stringify(state.expandedFolders)); };
+            det.ontoggle = () => {
+                state.expandedFolders[item.__path] = det.open;
+                window.writeJson(window.CONFIG.EXPANDED_KEY, state.expandedFolders);
+            };
             const sum = document.createElement('summary');
             sum.className = 'folder-label';
             sum.innerHTML = `<span class="folder-icon">▶</span> ${k}`;
@@ -206,7 +209,7 @@ window.showContextMenu = function(e, target) {
             window.addMenu(m, isBm ? "★ 解除" : "★ ブックマーク", () => {
                 if(isBm) state.bookmarks = state.bookmarks.filter(b => b !== path);
                 else state.bookmarks.push(path);
-                localStorage.setItem(window.CONFIG.BOOKMARKS_KEY, JSON.stringify(state.bookmarks));
+                window.writeJson(window.CONFIG.BOOKMARKS_KEY, state.bookmarks);
                 window.renderSidebar();
             });
             window.addMenu(m, "✏️ 名前変更", () => { const n = prompt("名前:", path); if (n) window.performRename(path, n); });
@@ -526,7 +529,7 @@ window.renderKeybindList = function() {
 };
 window.saveSettings = function() {
     document.querySelectorAll('.keybind-input').forEach(input => { state.keymap[input.dataset.cmdId] = input.value; });
-    localStorage.setItem(window.CONFIG.KEYMAP_KEY, JSON.stringify(state.keymap));
+    window.writeJson(window.CONFIG.KEYMAP_KEY, state.keymap);
     window.closeSettings();
 };
 window.resetSettings = function() { if(confirm("初期化しますか？")) { state.keymap = JSON.parse(JSON.stringify(window.DEFAULT_KEYMAP)); window.renderKeybindList(); } };
