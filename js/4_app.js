@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         switcherOverlay: id('switcher-overlay'), switcherInput: id('switcher-input'), switcherList: id('switcher-list'),
         commandOverlay: id('command-overlay'), commandInput: id('command-input'), commandList: id('command-list'),
         settingsOverlay: id('settings-overlay'), keybindList: id('keybind-list'),
+        phraseOverlay: id('phrase-overlay'), phraseList: id('phrase-list'), phraseTitle: id('phrase-title'),
         timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
         selectedCount: id('selected-count') // 追加
@@ -109,6 +110,7 @@ function setupEventListeners() {
         if(e.target === els.switcherOverlay) window.closeSwitcher();
         if(e.target === els.commandOverlay) window.closeCommandPalette();
         if(e.target === els.settingsOverlay) window.closeSettings();
+        if(e.target === els.phraseOverlay) window.closePhraseOverlay();
         document.getElementById('context-menu').style.display = 'none';
         document.getElementById('template-menu').style.display = 'none';
     };

@@ -119,6 +119,20 @@ window.escapeHTML = function(text) {
     });
 };
 
+window.escapeAttribute = function(text) {
+    return window.escapeHTML(text || "").replace(/"/g, '&quot;');
+};
+
+window.unescapeHTML = function(text) {
+    const d = document.createElement('div');
+    d.innerHTML = text || "";
+    return d.textContent || d.innerText || "";
+};
+
+window.escapeRegExp = function(text) {
+    return (text || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 window.copyCode = function(btn) {
     const code = btn.nextElementSibling.innerText;
     navigator.clipboard.writeText(code).then(() => {
@@ -241,6 +255,15 @@ window.parseInline = function(text) {
     t = t.replace(/\[\[(.*?)\]\]/g, (match, page) => {
         const wikiTag = `<span class="${state.notes[page] ? 'wiki-link' : 'wiki-link new'}" onclick="loadNote('${page}')">${page}</span>`;
         return createPlaceholder(wikiTag);
+    });
+
+    t = t.replace(/『([^』]+)』/g, (match, phrase) => {
+        const clean = window.unescapeHTML(phrase.trim());
+        if (!clean) return match;
+        const display = window.escapeHTML(clean);
+        const attr = window.escapeAttribute(clean);
+        const linkTag = `<span class="phrase-link" data-phrase="${attr}" onclick="window.openPhraseLinks(this.dataset.phrase)">『${display}』</span>`;
+        return createPlaceholder(linkTag);
     });
 
     t = t.replace(/^# (.*$)/, '<h1>$1</h1>').replace(/^## (.*$)/, '<h2>$1</h2>').replace(/^### (.*$)/, '<h3>$1</h3>');
