@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<button id="sidebar-toggle" class="btn">⮜</button>
+
 <div id="sidebar">
     <div class="sidebar-header">
         <button class="btn btn-primary" id="btn-new-note" style="flex:1;">＋ 新規</button>
@@ -119,30 +121,42 @@
 <div id="settings-overlay">
     <div id="settings-modal">
         <h2>⚙️ 設定</h2>
-            <div class="settings-section">
-                <h3>テンプレート設定</h3>
-                <div class="setting-row">
-                    <label for="template-folder-input">テンプレートフォルダ</label>
-                    <input id="template-folder-input" type="text" placeholder="例: Templates" />
-                </div>
-                <div class="setting-row checkbox">
-                    <label><input type="checkbox" id="template-include-sub" /> サブフォルダ内もテンプレートとして扱う</label>
-                </div>
-                <div class="setting-row">
-                    <label for="template-grouping">メニュー表示</label>
-                    <select id="template-grouping">
-                        <option value="path">フォルダ階層を維持</option>
-                        <option value="flat">ファイル名だけを表示</option>
-                </select>
+        <div class="settings-body">
+            <div class="settings-nav">
+                <button class="settings-tab btn-active" data-panel="template">テンプレート</button>
+                <button class="settings-tab" data-panel="hotkey">ホットキー</button>
             </div>
-            <div class="setting-row checkbox">
-                <label><input type="checkbox" id="template-spacing" /> 挿入前後に空行を自動で付与する</label>
+            <div class="settings-panels">
+                <div class="settings-panel active" id="settings-panel-template">
+                    <div class="settings-section">
+                        <h3>テンプレート設定</h3>
+                        <div class="setting-row">
+                            <label for="template-folder-input">テンプレートフォルダ</label>
+                            <input id="template-folder-input" type="text" placeholder="例: Templates" />
+                        </div>
+                        <div class="setting-row checkbox">
+                            <label><input type="checkbox" id="template-include-sub" /> サブフォルダ内もテンプレートとして扱う</label>
+                        </div>
+                        <div class="setting-row">
+                            <label for="template-grouping">メニュー表示</label>
+                            <select id="template-grouping">
+                                <option value="path">フォルダ階層を維持</option>
+                                <option value="flat">ファイル名だけを表示</option>
+                            </select>
+                        </div>
+                        <div class="setting-row checkbox">
+                            <label><input type="checkbox" id="template-spacing" /> 挿入前後に空行を自動で付与する</label>
+                        </div>
+                        <p class="settings-hint">テンプレートフォルダ配下に置いたノートがそのまま雛形として呼び出されます。フォルダ名は大文字小文字を区別します。</p>
+                    </div>
+                </div>
+                <div class="settings-panel" id="settings-panel-hotkey">
+                    <div class="settings-section">
+                        <h3>ショートカットキー設定</h3>
+                        <div id="keybind-list"></div>
+                    </div>
+                </div>
             </div>
-            <p class="settings-hint">テンプレートフォルダ配下に置いたノートがそのまま雛形として呼び出されます。フォルダ名は大文字小文字を区別します。</p>
-        </div>
-        <div class="settings-section">
-            <h3>ショートカットキー設定</h3>
-            <div id="keybind-list"></div>
         </div>
         <div class="settings-footer">
             <button class="btn btn-primary" id="btn-save-settings">保存して閉じる</button>

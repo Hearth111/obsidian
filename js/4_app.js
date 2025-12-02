@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
         phraseOverlay: id('phrase-overlay'), phraseList: id('phrase-list'), phraseTitle: id('phrase-title'),
         timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
-        selectedCount: id('selected-count') // 追加
+        selectedCount: id('selected-count'), // 追加
+        sidebarToggle: id('sidebar-toggle')
     });
 
     const defaultNotes = { "Home": "# Welcome v35.1\n\nFixed restore bug.\n\n[[Daily/Sample]]" };
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.keymap = window.readJson(window.CONFIG.KEYMAP_KEY, window.DEFAULT_KEYMAP);
     const savedSettings = window.readJson(window.CONFIG.SETTINGS_KEY, window.DEFAULT_SETTINGS);
     state.settings = { ...window.DEFAULT_SETTINGS, ...savedSettings };
+    state.isSidebarCollapsed = localStorage.getItem(window.CONFIG.SIDEBAR_KEY) === '1';
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
 
     const savedTabs = window.readJson(window.CONFIG.TABS_KEY, null);
@@ -49,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.persistTabs();
     setupEventListeners();
     window.refreshTemplateSources();
+    window.applySidebarState();
 
     // ウィンドウを閉じるときに確認ダイアログを表示
     window.onbeforeunload = function(e) {
@@ -81,6 +84,7 @@ function setupEventListeners() {
     document.getElementById('btn-import').onclick = () => document.getElementById('file-input').click();
     document.getElementById('file-input').onchange = window.importData;
     document.getElementById('sidebar').oncontextmenu = (e) => window.showContextMenu(e, {isRoot:true});
+    if (els.sidebarToggle) els.sidebarToggle.onclick = window.toggleSidebar;
     
     els.sidebarContent.ondragover = (e) => e.preventDefault();
     els.sidebarContent.ondrop = window.handleDropRoot;
@@ -102,6 +106,10 @@ function setupEventListeners() {
     document.getElementById('btn-dashboard').onclick = window.toggleDashboard;
     document.getElementById('btn-split').onclick = window.toggleSplit;
     document.getElementById('btn-mode').onclick = window.togglePreviewMode;
+
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.onclick = () => window.switchSettingsPanel(tab.dataset.panel);
+    });
 
     els.timer.onclick = window.toggleTimer;
 

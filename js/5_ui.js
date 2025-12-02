@@ -668,7 +668,23 @@ window.renderTemplateSettingsForm = function() {
     els.templateSpacing.checked = !!state.settings.insertSpacingAroundTemplate;
 };
 
-window.openSettings = function() { els.settingsOverlay.style.display = 'flex'; window.renderTemplateSettingsForm(); window.renderKeybindList(); };
+window.switchSettingsPanel = function(panelId) {
+    const panelName = `settings-panel-${panelId}`;
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.toggle('btn-active', tab.dataset.panel === panelId);
+    });
+    document.querySelectorAll('.settings-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === panelName);
+    });
+    if (panelId === 'hotkey') window.renderKeybindList();
+};
+
+window.openSettings = function() {
+    els.settingsOverlay.style.display = 'flex';
+    window.switchSettingsPanel('template');
+    window.renderTemplateSettingsForm();
+    window.renderKeybindList();
+};
 window.closeSettings = function() { els.settingsOverlay.style.display = 'none'; };
 window.renderKeybindList = function() {
     const list = els.keybindList;
@@ -718,4 +734,19 @@ window.resetSettings = function() {
         window.writeJson(window.CONFIG.KEYMAP_KEY, state.keymap);
         window.writeJson(window.CONFIG.SETTINGS_KEY, state.settings);
     }
+};
+
+window.applySidebarState = function() {
+    document.body.classList.toggle('sidebar-collapsed', state.isSidebarCollapsed);
+    const btn = document.getElementById('sidebar-toggle');
+    if (btn) {
+        btn.textContent = state.isSidebarCollapsed ? '⮞' : '⮜';
+        btn.title = state.isSidebarCollapsed ? 'サイドバーを開く' : 'サイドバーを閉じる';
+    }
+};
+
+window.toggleSidebar = function() {
+    state.isSidebarCollapsed = !state.isSidebarCollapsed;
+    localStorage.setItem(window.CONFIG.SIDEBAR_KEY, state.isSidebarCollapsed ? '1' : '0');
+    window.applySidebarState();
 };

@@ -10,7 +10,8 @@ window.CONFIG = {
     IMAGES_KEY: 'obsidian_v35_images',
     KEYMAP_KEY: 'obsidian_v35_keymap',
     SETTINGS_KEY: 'obsidian_v35_settings',
-    TABS_KEY: 'obsidian_v35_tabs'
+    TABS_KEY: 'obsidian_v35_tabs',
+    SIDEBAR_KEY: 'obsidian_v35_sidebar_collapsed'
 };
 
 window.readJson = function(key, fallback) {
@@ -94,6 +95,7 @@ window.state = {
     showCompletedTasks: false,
     isCanvasMode: false,
     isModified: false, // NEW: Track unsaved changes for prompt on close
+    isSidebarCollapsed: false,
     
     // Canvas State
     canvasData: { nodes: [], edges: [], x: 0, y: 0, zoom: 1 },
