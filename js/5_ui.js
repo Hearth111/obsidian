@@ -391,6 +391,71 @@ window.handleSearch = function() {
     });
 };
 
+window.openPhraseLinks = function(rawPhrase) {
+    const overlay = document.getElementById('phrase-overlay');
+    const list = document.getElementById('phrase-list');
+    const heading = document.getElementById('phrase-title');
+    const phraseText = window.unescapeHTML(rawPhrase || "");
+
+    if (!overlay || !list || !heading || !phraseText) return;
+
+    heading.textContent = `『${phraseText}』の出現箇所`;
+    list.innerHTML = "";
+
+    const results = Object.entries(state.notes)
+        .filter(([title]) => !title.endsWith('/' + window.FOLDER_MARKER))
+        .filter(([_, content]) => !content.startsWith(window.CANVAS_MARKER))
+        .map(([title, content]) => {
+            const matches = [];
+            let idx = content.indexOf(phraseText);
+            while (idx !== -1) {
+                const start = Math.max(0, idx - 20);
+                const end = Math.min(content.length, idx + phraseText.length + 20);
+                const snippet = content.slice(start, end).replace(/\n/g, ' ');
+                matches.push(snippet);
+                idx = content.indexOf(phraseText, idx + phraseText.length);
+            }
+            return { title, matches };
+        })
+        .filter(r => r.matches.length > 0);
+
+    if (results.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'phrase-empty';
+        empty.textContent = '該当箇所は見つかりませんでした。';
+        list.appendChild(empty);
+    } else {
+        const regex = new RegExp(window.escapeRegExp(phraseText), 'g');
+        results.forEach(result => {
+            const container = document.createElement('div');
+            container.className = 'phrase-result';
+
+            const title = document.createElement('div');
+            title.className = 'phrase-result-title';
+            title.textContent = result.title;
+            title.onclick = () => window.loadNote(result.title);
+            container.appendChild(title);
+
+            result.matches.forEach(snippetText => {
+                const snippet = document.createElement('div');
+                snippet.className = 'phrase-snippet';
+                const safe = window.escapeHTML(snippetText);
+                snippet.innerHTML = safe.replace(regex, `<mark>『${window.escapeHTML(phraseText)}』</mark>`);
+                container.appendChild(snippet);
+            });
+
+            list.appendChild(container);
+        });
+    }
+
+    overlay.style.display = 'flex';
+};
+
+window.closePhraseOverlay = function() {
+    const overlay = document.getElementById('phrase-overlay');
+    if (overlay) overlay.style.display = 'none';
+};
+
 window.openSwitcher = function() { window.closeCommandPalette(); els.switcherOverlay.style.display = 'flex'; els.switcherInput.value = ""; els.switcherInput.focus(); window.updateSwitcher(); };
 window.closeSwitcher = function() { els.switcherOverlay.style.display = 'none'; els.editor.focus(); };
 window.updateSwitcher = function() {
