@@ -8,7 +8,8 @@ window.CONFIG = {
     EXPANDED_KEY: 'obsidian_v35_expanded',
     BOOKMARKS_KEY: 'obsidian_v35_bookmarks',
     IMAGES_KEY: 'obsidian_v35_images',
-    KEYMAP_KEY: 'obsidian_v35_keymap'
+    KEYMAP_KEY: 'obsidian_v35_keymap',
+    SETTINGS_KEY: 'obsidian_v35_settings'
 };
 
 window.readJson = function(key, fallback) {
@@ -42,9 +43,19 @@ window.showBackupStatus = function(message, duration = 3000) {
     }
 };
 
-window.TEMPLATES = {
-    'meeting': `## 議事録\n- 日時: \n- 参加者: \n\n### 議題\n1. \n\n### 決定事項\n- \n\n### Next Action\n- [ ] `,
-    'bug': `## バグ報告\n- 発生環境: \n- 再現手順:\n  1. \n  2. \n- 期待値: \n- 実際の結果: \n`
+window.BUILTIN_TEMPLATES = {
+    'meeting': {
+        name: '議事録フォーマット',
+        body: `## 議事録\n- 日時: \n- 参加者: \n\n### 議題\n1. \n\n### 決定事項\n- \n\n### Next Action\n- [ ] `
+    },
+    'bug': {
+        name: 'バグ報告',
+        body: `## バグ報告\n- 発生環境: \n- 再現手順:\n  1. \n  2. \n- 期待値: \n- 実際の結果: \n`
+    },
+    'idea': {
+        name: 'アイデアメモ',
+        body: `## アイデア\n- タイトル: \n- 背景: \n- 解決したい課題:\n- 解決策: \n- メモ:\n`
+    }
 };
 
 window.CANVAS_MARKER = '---type: canvas---';
@@ -57,6 +68,14 @@ window.DEFAULT_KEYMAP = {
     'open-switcher': 'Ctrl+K',
     'open-command': 'Ctrl+P',
     'save-data': 'Ctrl+S' // NEW: Ctrl+SでJSON保存
+};
+
+window.DEFAULT_SETTINGS = {
+    templateFolder: 'Templates',
+    includeSubfoldersForTemplates: true,
+    includeBuiltinTemplates: true,
+    templateMenuGrouping: 'path', // 'path' | 'flat'
+    insertSpacingAroundTemplate: true
 };
 
 window.CANVAS_COLORS = [
@@ -75,6 +94,8 @@ window.state = {
     expandedFolders: {},
     bookmarks: [],
     keymap: window.DEFAULT_KEYMAP,
+    settings: window.DEFAULT_SETTINGS,
+    templateCatalog: [],
     currentTitle: "Home",
     historyStack: [],
     historyIndex: -1,
@@ -117,7 +138,7 @@ window.state = {
     commandIndex: 0
 };
 
-window.COMMANDS = [
+window.CORE_COMMANDS = [
     { id: 'new-note', name: '新規ノート作成', handler: () => window.createNewNote() },
     { id: 'new-folder', name: '新規フォルダ作成', handler: () => window.createNewFolder() },
     { id: 'new-canvas', name: '新規キャンバス作成', handler: () => window.createNewCanvas() },
@@ -130,9 +151,6 @@ window.COMMANDS = [
     { id: 'export-data', name: '全データをダウンロード (JSON)', handler: () => window.exportData() }, // MODIFIED: Name changed for clarity
     { id: 'save-data', name: 'JSONを保存 (Ctrl+S)', handler: () => window.exportData() }, // NEW: Ctrl+S command
     { id: 'download-md', name: '現在のノートをダウンロード (MD)', handler: () => window.downloadNote() },
-    { id: 'insert-tmpl-meeting', name: 'テンプレート挿入: 議事録', handler: () => window.insertTemplate('meeting') },
-    { id: 'insert-tmpl-bug', name: 'テンプレート挿入: バグ報告', handler: () => window.insertTemplate('bug') },
-    { id: 'insert-tmpl-idea', name: 'テンプレート挿入: アイデア', handler: () => window.insertTemplate('idea') },
     { id: 'toggle-timer', name: 'ポモドーロタイマー切替', handler: () => window.toggleTimer() },
     { id: 'go-back', name: '前に戻る', handler: () => window.goBack() },
     { id: 'go-forward', name: '次に進む', handler: () => window.goForward() },
@@ -140,6 +158,8 @@ window.COMMANDS = [
     { id: 'open-command', name: 'コマンドパレットを開く...', handler: () => window.openCommandPalette() },
     { id: 'open-settings', name: '設定を開く', handler: () => window.openSettings() },
 ];
+
+window.COMMANDS = [...window.CORE_COMMANDS];
 
 window.escapeHTML = function(text) {
     if (!text) return "";

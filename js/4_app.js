@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         switcherOverlay: id('switcher-overlay'), switcherInput: id('switcher-input'), switcherList: id('switcher-list'),
         commandOverlay: id('command-overlay'), commandInput: id('command-input'), commandList: id('command-list'),
         settingsOverlay: id('settings-overlay'), keybindList: id('keybind-list'),
+        templateFolderInput: id('template-folder-input'), templateIncludeSub: id('template-include-sub'), templateIncludeBuiltin: id('template-include-builtin'), templateGrouping: id('template-grouping'), templateSpacing: id('template-spacing'),
         phraseOverlay: id('phrase-overlay'), phraseList: id('phrase-list'), phraseTitle: id('phrase-title'),
         timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
@@ -27,6 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
     state.expandedFolders = window.readJson(window.CONFIG.EXPANDED_KEY, {});
     state.bookmarks = window.readJson(window.CONFIG.BOOKMARKS_KEY, []);
     state.keymap = window.readJson(window.CONFIG.KEYMAP_KEY, window.DEFAULT_KEYMAP);
+    const savedSettings = window.readJson(window.CONFIG.SETTINGS_KEY, window.DEFAULT_SETTINGS);
+    state.settings = { ...window.DEFAULT_SETTINGS, ...savedSettings };
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
 
     if (!state.notes[state.currentTitle]) state.notes[state.currentTitle] = "";
@@ -34,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.pushHistory(state.currentTitle);
     window.loadNoteUI(state.currentTitle);
     setupEventListeners();
+    window.refreshTemplateSources();
 
     // ウィンドウを閉じるときに確認ダイアログを表示
     window.onbeforeunload = function(e) {
@@ -123,9 +127,6 @@ function setupEventListeners() {
     document.getElementById('btn-save-settings').onclick = window.saveSettings;
     document.getElementById('btn-reset-settings').onclick = window.resetSettings;
 
-    document.querySelectorAll('#template-menu div').forEach(d => {
-        d.onclick = () => window.insertTemplate(d.dataset.tmpl);
-    });
 }
 
 // --- Core Logic Implementation (Attached to window) ---
