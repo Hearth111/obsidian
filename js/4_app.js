@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         phraseOverlay: id('phrase-overlay'), phraseList: id('phrase-list'), phraseTitle: id('phrase-title'),
         timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
-        statNoteCount: id('stat-note-count'), statBookmarkCount: id('stat-bookmark-count'), statTaskSummary: id('stat-task-summary'), statReadingTime: id('stat-reading-time'),
         selectedCount: id('selected-count') // 追加
     });
 
@@ -70,13 +69,6 @@ function setupEventListeners() {
     });
     els.editor.addEventListener('paste', window.handlePaste);
     els.editor.addEventListener('keydown', window.handleEditorKeydown);
-
-    document.querySelectorAll('.format-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.applyQuickFormat(btn.dataset.action);
-        });
-    });
     
     // 追加: 文字が選択されたか、キーボードで選択範囲が動いたかを検出
     els.editor.addEventListener('mouseup', window.updateSelectedCount);
@@ -172,11 +164,10 @@ window.loadNote = function(title, isHistoryNav = false) {
 window.loadNoteUI = function(title) {
     els.title.value = title;
     const content = state.notes[title] || "";
-
+    
     if (content.startsWith(window.CANVAS_MARKER)) {
         state.isCanvasMode = true;
         window.updateLayout();
-        els.editor.value = "";
         window.loadCanvasData(content);
     } else {
         state.isCanvasMode = false;
@@ -187,7 +178,6 @@ window.loadNoteUI = function(title) {
     }
     window.renderSidebar(); // UI Logic
     window.updateNavButtons();
-    window.updateUtilityStats();
 };
 
 window.updateLayout = function() {
