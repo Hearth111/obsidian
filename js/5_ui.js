@@ -124,17 +124,6 @@ window.buildTemplateCatalog = function() {
         });
     }
 
-    if (settings.includeBuiltinTemplates) {
-        Object.entries(window.BUILTIN_TEMPLATES).forEach(([key, tmpl]) => {
-            catalog.push({
-                id: `builtin:${key}`,
-                label: tmpl.name,
-                source: 'builtin',
-                commandId: buildCommandId(tmpl.name)
-            });
-        });
-    }
-
     return catalog;
 };
 
@@ -157,18 +146,11 @@ window.renderTemplateMenu = function() {
         return;
     }
 
-    let hasBuiltin = false;
     state.templateCatalog.forEach((tmpl, index) => {
-        if (tmpl.source === 'builtin' && !hasBuiltin) {
-            const divider = document.createElement('div');
-            divider.className = 'template-menu-divider';
-            menu.appendChild(divider);
-            hasBuiltin = true;
-        }
         const item = document.createElement('div');
         item.className = 'template-item';
         item.dataset.tmpl = tmpl.id;
-        item.innerHTML = `${window.escapeHTML(tmpl.label)}${tmpl.source === 'builtin' ? '<span class="template-source">組み込み</span>' : ''}`;
+        item.innerHTML = `${window.escapeHTML(tmpl.label)}`;
         item.onclick = (e) => { e.stopPropagation(); window.insertTemplateById(tmpl.id); };
         menu.appendChild(item);
         if (index === state.templateCatalog.length - 1) {
@@ -201,16 +183,46 @@ window.refreshTemplateSources = function() {
     window.updateTemplateCommands();
 };
 
+window.renderTabBar = function() {
+    if (!els.tabBar) return;
+    els.tabBar.innerHTML = '';
+    state.openTabs.forEach(title => {
+        const item = document.createElement('div');
+        item.className = 'tab-item' + (title === state.currentTitle ? ' active' : '');
+        const label = document.createElement('span');
+        label.textContent = title;
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'tab-close';
+        closeBtn.textContent = '×';
+        closeBtn.onclick = (e) => { e.stopPropagation(); window.closeTab(title); };
+        item.onclick = () => { if (title !== state.currentTitle) window.loadNote(title); };
+        item.appendChild(label);
+        item.appendChild(closeBtn);
+        els.tabBar.appendChild(item);
+    });
+};
+
+window.closeTab = function(title) {
+    const idx = state.openTabs.indexOf(title);
+    if (idx === -1) return;
+    state.openTabs.splice(idx, 1);
+    if (!state.openTabs.length) {
+        if (!state.notes['Home']) state.notes['Home'] = '# Home\n';
+        state.openTabs.push('Home');
+    }
+    const nextIndex = Math.min(idx, state.openTabs.length - 1);
+    const nextTitle = title === state.currentTitle ? state.openTabs[nextIndex] : state.currentTitle;
+    window.persistTabs();
+    window.renderTabBar();
+    if (title === state.currentTitle) window.loadNote(nextTitle);
+};
+
 window.insertTemplateById = function(id) {
     const tmpl = state.templateCatalog.find(t => t.id === id);
     if (!tmpl) { document.getElementById('template-menu').style.display = 'none'; return; }
 
     let body = '';
-    if (tmpl.source === 'builtin') {
-        body = window.BUILTIN_TEMPLATES[tmpl.id.replace('builtin:', '')]?.body || '';
-    } else {
-        body = state.notes[tmpl.path] || '';
-    }
+    body = state.notes[tmpl.path] || '';
 
     if (!body) {
         alert('テンプレート内容が空のようです');
@@ -226,8 +238,13 @@ window.insertTemplateById = function(id) {
         if (after && !body.endsWith('\n')) body = body + '\n';
     }
 
-    document.execCommand('insertText', false, body);
-    window.saveData();
+    if (els.editor) {
+        els.editor.focus();
+        window.insertAtCursor(body);
+    } else {
+        document.execCommand('insertText', false, body);
+        window.saveData();
+    }
     document.getElementById('template-menu').style.display = 'none';
 };
 
@@ -392,9 +409,11 @@ window.performRename = function(oldPath, newPath) {
     dels.forEach(k => delete state.notes[k]);
     const bi = state.bookmarks.indexOf(oldPath);
     if(bi !== -1) state.bookmarks[bi] = newPath;
+    state.openTabs = state.openTabs.map(t => t === oldPath ? newPath : (t.startsWith(oldPath + '/') ? t.replace(oldPath, newPath) : t));
     window.saveData();
+    window.persistTabs();
     if (state.currentTitle.startsWith(oldPath)) window.loadNote(state.currentTitle.replace(oldPath, newPath));
-    else window.renderSidebar();
+    else { window.renderSidebar(); window.renderTabBar(); }
 };
 
 window.deleteItem = function(path) {
@@ -402,8 +421,10 @@ window.deleteItem = function(path) {
     Object.keys(state.notes).filter(k => k === path || k.startsWith(path + '/')).forEach(k => delete state.notes[k]);
     state.bookmarks = state.bookmarks.filter(b => b !== path);
     window.saveData();
+    state.openTabs = state.openTabs.filter(t => !(t === path || t.startsWith(path + '/')));
+    window.persistTabs();
     if (state.currentTitle === path || state.currentTitle.startsWith(path + '/')) window.loadNote("Home");
-    else window.renderSidebar();
+    else { window.renderSidebar(); window.renderTabBar(); }
 };
 
 // --- Status Bar & Timer ---
@@ -647,7 +668,6 @@ window.renderTemplateSettingsForm = function() {
     if (!els.templateFolderInput) return;
     els.templateFolderInput.value = state.settings.templateFolder || '';
     els.templateIncludeSub.checked = !!state.settings.includeSubfoldersForTemplates;
-    els.templateIncludeBuiltin.checked = !!state.settings.includeBuiltinTemplates;
     els.templateGrouping.value = state.settings.templateMenuGrouping || 'path';
     els.templateSpacing.checked = !!state.settings.insertSpacingAroundTemplate;
 };
@@ -684,7 +704,6 @@ window.saveSettings = function() {
     const templateSettings = {
         templateFolder: window.normalizeTemplateFolder(els.templateFolderInput.value.trim()),
         includeSubfoldersForTemplates: els.templateIncludeSub.checked,
-        includeBuiltinTemplates: els.templateIncludeBuiltin.checked,
         templateMenuGrouping: els.templateGrouping.value,
         insertSpacingAroundTemplate: els.templateSpacing.checked
     };

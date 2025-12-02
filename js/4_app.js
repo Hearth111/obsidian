@@ -11,10 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
         canvasArea: id('canvas-area'), canvasLayer: id('canvas-layer'),
         title: id('title-input'), searchBox: id('search-box'),
         sidebarContent: id('sidebar-container'), fileTree: id('file-tree'),
+        tabBar: id('tab-bar'),
         switcherOverlay: id('switcher-overlay'), switcherInput: id('switcher-input'), switcherList: id('switcher-list'),
         commandOverlay: id('command-overlay'), commandInput: id('command-input'), commandList: id('command-list'),
         settingsOverlay: id('settings-overlay'), keybindList: id('keybind-list'),
-        templateFolderInput: id('template-folder-input'), templateIncludeSub: id('template-include-sub'), templateIncludeBuiltin: id('template-include-builtin'), templateGrouping: id('template-grouping'), templateSpacing: id('template-spacing'),
+        templateFolderInput: id('template-folder-input'), templateIncludeSub: id('template-include-sub'), templateGrouping: id('template-grouping'), templateSpacing: id('template-spacing'),
         phraseOverlay: id('phrase-overlay'), phraseList: id('phrase-list'), phraseTitle: id('phrase-title'),
         timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
@@ -32,10 +33,20 @@ document.addEventListener('DOMContentLoaded', () => {
     state.settings = { ...window.DEFAULT_SETTINGS, ...savedSettings };
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
 
+    const savedTabs = window.readJson(window.CONFIG.TABS_KEY, null);
+    if (Array.isArray(savedTabs) && savedTabs.length) {
+        state.openTabs = Array.from(new Set(savedTabs.filter(t => state.notes[t])));
+    }
+
+    if (!state.openTabs.length) state.openTabs = [state.currentTitle];
+    if (!state.openTabs.includes(state.currentTitle)) state.openTabs.push(state.currentTitle);
+
     if (!state.notes[state.currentTitle]) state.notes[state.currentTitle] = "";
-    
+
     window.pushHistory(state.currentTitle);
     window.loadNoteUI(state.currentTitle);
+    window.renderTabBar();
+    window.persistTabs();
     setupEventListeners();
     window.refreshTemplateSources();
 
@@ -131,13 +142,20 @@ function setupEventListeners() {
 
 // --- Core Logic Implementation (Attached to window) ---
 
+window.persistTabs = function() {
+    window.writeJson(window.CONFIG.TABS_KEY, state.openTabs);
+};
+
 window.loadNote = function(title, isHistoryNav = false) {
-    if (state.isDashboard) window.toggleDashboard(); 
+    if (state.isDashboard) window.toggleDashboard();
     if (!isHistoryNav && title !== state.currentTitle) {
         window.pushHistory(title);
     }
+    if (!state.openTabs.includes(title)) state.openTabs.push(title);
     state.currentTitle = title;
     localStorage.setItem(window.CONFIG.LAST_OPEN_KEY, title);
+    window.persistTabs();
+    if (typeof window.renderTabBar === 'function') window.renderTabBar();
     window.loadNoteUI(title);
     state.isModified = false; // Reset flag on note switch/load
     window.updateSelectedCount(); // 追加: ノート切り替え時に選択文字数表示をリセット
