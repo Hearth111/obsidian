@@ -20,18 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedCount: id('selected-count') // 追加
     });
 
-    try {
-        state.notes = JSON.parse(localStorage.getItem(window.CONFIG.STORAGE_KEY)) || { "Home": "# Welcome v35.1\n\nFixed restore bug.\n\n[[Daily/Sample]]" };
-        state.images = JSON.parse(localStorage.getItem(window.CONFIG.IMAGES_KEY)) || {};
-        state.expandedFolders = JSON.parse(localStorage.getItem(window.CONFIG.EXPANDED_KEY)) || {};
-        state.bookmarks = JSON.parse(localStorage.getItem(window.CONFIG.BOOKMARKS_KEY)) || [];
-        state.keymap = JSON.parse(localStorage.getItem(window.CONFIG.KEYMAP_KEY)) || window.DEFAULT_KEYMAP;
-        state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
-    } catch (e) {
-        console.error("Failed to load data:", e);
-        state.notes = { "Home": "# Error Recovery\n\nData load failed. Starting fresh." };
-        state.currentTitle = "Home";
-    }
+    const defaultNotes = { "Home": "# Welcome v35.1\n\nFixed restore bug.\n\n[[Daily/Sample]]" };
+
+    state.notes = window.readJson(window.CONFIG.STORAGE_KEY, defaultNotes);
+    state.images = window.readJson(window.CONFIG.IMAGES_KEY, {});
+    state.expandedFolders = window.readJson(window.CONFIG.EXPANDED_KEY, {});
+    state.bookmarks = window.readJson(window.CONFIG.BOOKMARKS_KEY, []);
+    state.keymap = window.readJson(window.CONFIG.KEYMAP_KEY, window.DEFAULT_KEYMAP);
+    state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
 
     if (!state.notes[state.currentTitle]) state.notes[state.currentTitle] = "";
     
