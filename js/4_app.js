@@ -20,7 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
         timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
         selectedCount: id('selected-count'), // 追加
-        sidebarToggle: id('sidebar-toggle')
+        sidebarToggle: id('sidebar-toggle'),
+        formatMenu: id('format-menu')
     });
 
     const defaultNotes = { "Home": "# Welcome v35.1\n\nFixed restore bug.\n\n[[Daily/Sample]]" };
@@ -74,8 +75,12 @@ function setupEventListeners() {
     els.editor.addEventListener('keydown', window.handleEditorKeydown);
     
     // 追加: 文字が選択されたか、キーボードで選択範囲が動いたかを検出
-    els.editor.addEventListener('mouseup', window.updateSelectedCount);
-    els.editor.addEventListener('keyup', window.updateSelectedCount);
+    const selectionWatcher = (e) => { window.updateSelectedCount(); window.updateFormatMenu(e); };
+    els.editor.addEventListener('mouseup', selectionWatcher);
+    els.editor.addEventListener('keyup', selectionWatcher);
+    els.editor.addEventListener('select', selectionWatcher);
+    els.editor.addEventListener('scroll', window.hideFormatMenu);
+    els.editor.addEventListener('blur', window.hideFormatMenu);
 
     els.searchBox.addEventListener('input', window.handleSearch);
     document.getElementById('btn-new-note').onclick = () => window.createNewNote();
@@ -95,12 +100,15 @@ function setupEventListeners() {
     document.getElementById('btn-settings').onclick = window.openSettings;
     
     document.getElementById('btn-table').onclick = window.insertTable;
-    document.getElementById('btn-template').onclick = (e) => { 
-        e.stopPropagation(); 
-        const m = document.getElementById('template-menu'); 
-        const r = e.target.getBoundingClientRect(); 
-        m.style.top = (r.bottom+5)+'px'; m.style.left = r.left+'px'; m.style.display = 'block'; 
+    document.getElementById('btn-template').onclick = (e) => {
+        e.stopPropagation();
+        const m = document.getElementById('template-menu');
+        const r = e.target.getBoundingClientRect();
+        m.style.top = (r.bottom+5)+'px'; m.style.left = r.left+'px'; m.style.display = 'block';
     };
+    document.querySelectorAll('#format-menu button').forEach(btn => {
+        btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.applyFormatting(btn.dataset.action); };
+    });
     document.getElementById('btn-download').onclick = window.downloadNote;
     document.getElementById('btn-privacy').onclick = window.togglePrivacy;
     document.getElementById('btn-dashboard').onclick = window.toggleDashboard;
@@ -130,6 +138,7 @@ function setupEventListeners() {
         if(e.target === els.phraseOverlay) window.closePhraseOverlay();
         document.getElementById('context-menu').style.display = 'none';
         document.getElementById('template-menu').style.display = 'none';
+        if (!e.target.closest('#format-menu')) window.hideFormatMenu();
     };
     document.onkeydown = window.handleGlobalKeys;
     els.switcherInput.oninput = window.updateSwitcher;
