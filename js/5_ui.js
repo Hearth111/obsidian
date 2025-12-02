@@ -167,7 +167,7 @@ window.updateTemplateCommands = function() {
     state.templateCatalog.forEach(tmpl => {
         nextCommands.push({
             id: tmpl.commandId,
-            name: `テンプレート挿入: ${tmpl.label}`,
+            name: `テンプレートから新規作成: ${tmpl.label}`,
             handler: () => window.insertTemplateById(tmpl.id),
             isTemplateCommand: true
         });
@@ -221,30 +221,26 @@ window.insertTemplateById = function(id) {
     const tmpl = state.templateCatalog.find(t => t.id === id);
     if (!tmpl) { document.getElementById('template-menu').style.display = 'none'; return; }
 
-    let body = '';
-    body = state.notes[tmpl.path] || '';
-
+    const body = state.notes[tmpl.path] || '';
     if (!body) {
         alert('テンプレート内容が空のようです');
         document.getElementById('template-menu').style.display = 'none';
         return;
     }
 
-    if (state.settings.insertSpacingAroundTemplate && els.editor) {
-        const { selectionStart, selectionEnd, value } = els.editor;
-        const before = value.slice(0, selectionStart);
-        const after = value.slice(selectionEnd);
-        if (before && !before.endsWith('\n')) body = '\n' + body;
-        if (after && !body.endsWith('\n')) body = body + '\n';
+    const suggested = tmpl.path.split('/').pop() || tmpl.label || '';
+    const newTitle = prompt(`テンプレートから作成するノート名を入力 (元: ${tmpl.label})`, suggested);
+    if (!newTitle) { document.getElementById('template-menu').style.display = 'none'; return; }
+
+    if (state.notes[newTitle]) {
+        const overwrite = confirm('同名のノートが既にあります。上書きしますか？');
+        if (!overwrite) { document.getElementById('template-menu').style.display = 'none'; return; }
     }
 
-    if (els.editor) {
-        els.editor.focus();
-        window.insertAtCursor(body);
-    } else {
-        document.execCommand('insertText', false, body);
-        window.saveData();
-    }
+    state.notes[newTitle] = body;
+    window.loadNote(newTitle);
+    window.saveData();
+    if(state.isPreview && !state.isSplit) window.togglePreviewMode();
     document.getElementById('template-menu').style.display = 'none';
 };
 
