@@ -84,9 +84,150 @@ window.insertTable = function() {
     document.execCommand('insertText', false, m + "\n");
 };
 
-window.insertTemplate = function(key) {
-    const t = window.TEMPLATES[key];
-    if (t) { document.execCommand('insertText', false, t); window.saveData(); }
+window.normalizeTemplateFolder = function(folderName) {
+    if (!folderName) return '';
+    return folderName.replace(/^\/+|\/+$/g, '');
+};
+
+window.buildTemplateCatalog = function() {
+    const catalog = [];
+    const settings = state.settings || window.DEFAULT_SETTINGS;
+    const folderRaw = (settings.templateFolder || '').trim();
+    const folder = window.normalizeTemplateFolder(folderRaw);
+    const seenCommandIds = new Set();
+
+    const buildCommandId = (label) => {
+        const safe = (label || 'template').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'template';
+        let cmd = `insert-tmpl-${safe}`;
+        let i = 2;
+        while (seenCommandIds.has(cmd)) { cmd = `insert-tmpl-${safe}-${i++}`; }
+        seenCommandIds.add(cmd);
+        return cmd;
+    };
+
+    if (folder) {
+        const prefix = folder + '/';
+        Object.keys(state.notes).sort().forEach(path => {
+            if (path.endsWith('/' + window.FOLDER_MARKER)) return;
+            if (path !== folder && !path.startsWith(prefix)) return;
+            if (!settings.includeSubfoldersForTemplates && path.includes('/', prefix.length)) return;
+
+            const relative = path === folder ? folder.split('/').pop() : path.replace(prefix, '');
+            const label = settings.templateMenuGrouping === 'flat' ? path.split('/').pop() : relative;
+            catalog.push({
+                id: `note:${path}`,
+                label: label,
+                source: 'note',
+                path,
+                commandId: buildCommandId(label)
+            });
+        });
+    }
+
+    if (settings.includeBuiltinTemplates) {
+        Object.entries(window.BUILTIN_TEMPLATES).forEach(([key, tmpl]) => {
+            catalog.push({
+                id: `builtin:${key}`,
+                label: tmpl.name,
+                source: 'builtin',
+                commandId: buildCommandId(tmpl.name)
+            });
+        });
+    }
+
+    return catalog;
+};
+
+window.renderTemplateMenu = function() {
+    const menu = document.getElementById('template-menu');
+    if (!menu) return;
+    menu.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.className = 'template-menu-header';
+    const folderLabel = window.normalizeTemplateFolder(state.settings.templateFolder || '');
+    header.textContent = folderLabel ? `📁 ${folderLabel}` : 'テンプレートフォルダ未設定';
+    menu.appendChild(header);
+
+    if (!state.templateCatalog.length) {
+        const empty = document.createElement('div');
+        empty.className = 'template-menu-empty';
+        empty.textContent = 'テンプレートが見つかりません。設定からフォルダを指定してください。';
+        menu.appendChild(empty);
+        return;
+    }
+
+    let hasBuiltin = false;
+    state.templateCatalog.forEach((tmpl, index) => {
+        if (tmpl.source === 'builtin' && !hasBuiltin) {
+            const divider = document.createElement('div');
+            divider.className = 'template-menu-divider';
+            menu.appendChild(divider);
+            hasBuiltin = true;
+        }
+        const item = document.createElement('div');
+        item.className = 'template-item';
+        item.dataset.tmpl = tmpl.id;
+        item.innerHTML = `${window.escapeHTML(tmpl.label)}${tmpl.source === 'builtin' ? '<span class="template-source">組み込み</span>' : ''}`;
+        item.onclick = (e) => { e.stopPropagation(); window.insertTemplateById(tmpl.id); };
+        menu.appendChild(item);
+        if (index === state.templateCatalog.length - 1) {
+            const footer = document.createElement('div');
+            footer.className = 'template-menu-footer';
+            footer.textContent = 'テンプレートは設定で管理できます';
+            menu.appendChild(footer);
+        }
+    });
+};
+
+window.updateTemplateCommands = function() {
+    const nextCommands = [...window.CORE_COMMANDS];
+    state.templateCatalog.forEach(tmpl => {
+        nextCommands.push({
+            id: tmpl.commandId,
+            name: `テンプレート挿入: ${tmpl.label}`,
+            handler: () => window.insertTemplateById(tmpl.id),
+            isTemplateCommand: true
+        });
+    });
+    window.COMMANDS = nextCommands;
+    if (els.commandOverlay && els.commandOverlay.style.display === 'flex') window.updateCommandPalette();
+    if (els.settingsOverlay && els.settingsOverlay.style.display === 'flex') window.renderKeybindList();
+};
+
+window.refreshTemplateSources = function() {
+    state.templateCatalog = window.buildTemplateCatalog();
+    window.renderTemplateMenu();
+    window.updateTemplateCommands();
+};
+
+window.insertTemplateById = function(id) {
+    const tmpl = state.templateCatalog.find(t => t.id === id);
+    if (!tmpl) { document.getElementById('template-menu').style.display = 'none'; return; }
+
+    let body = '';
+    if (tmpl.source === 'builtin') {
+        body = window.BUILTIN_TEMPLATES[tmpl.id.replace('builtin:', '')]?.body || '';
+    } else {
+        body = state.notes[tmpl.path] || '';
+    }
+
+    if (!body) {
+        alert('テンプレート内容が空のようです');
+        document.getElementById('template-menu').style.display = 'none';
+        return;
+    }
+
+    if (state.settings.insertSpacingAroundTemplate && els.editor) {
+        const { selectionStart, selectionEnd, value } = els.editor;
+        const before = value.slice(0, selectionStart);
+        const after = value.slice(selectionEnd);
+        if (before && !before.endsWith('\n')) body = '\n' + body;
+        if (after && !body.endsWith('\n')) body = body + '\n';
+    }
+
+    document.execCommand('insertText', false, body);
+    window.saveData();
     document.getElementById('template-menu').style.display = 'none';
 };
 
@@ -107,6 +248,7 @@ window.handleEditorKeydown = function(e) {
 // --- Sidebar & File Management ---
 
 window.renderSidebar = function() {
+    window.refreshTemplateSources();
     els.fileTree.innerHTML = "";
     const tree = {};
     Object.keys(state.notes).sort().forEach(k => {
@@ -501,7 +643,16 @@ window.renderCommandList = function() {
 
 // --- Settings ---
 
-window.openSettings = function() { els.settingsOverlay.style.display = 'flex'; window.renderKeybindList(); };
+window.renderTemplateSettingsForm = function() {
+    if (!els.templateFolderInput) return;
+    els.templateFolderInput.value = state.settings.templateFolder || '';
+    els.templateIncludeSub.checked = !!state.settings.includeSubfoldersForTemplates;
+    els.templateIncludeBuiltin.checked = !!state.settings.includeBuiltinTemplates;
+    els.templateGrouping.value = state.settings.templateMenuGrouping || 'path';
+    els.templateSpacing.checked = !!state.settings.insertSpacingAroundTemplate;
+};
+
+window.openSettings = function() { els.settingsOverlay.style.display = 'flex'; window.renderTemplateSettingsForm(); window.renderKeybindList(); };
 window.closeSettings = function() { els.settingsOverlay.style.display = 'none'; };
 window.renderKeybindList = function() {
     const list = els.keybindList;
@@ -530,6 +681,26 @@ window.renderKeybindList = function() {
 window.saveSettings = function() {
     document.querySelectorAll('.keybind-input').forEach(input => { state.keymap[input.dataset.cmdId] = input.value; });
     window.writeJson(window.CONFIG.KEYMAP_KEY, state.keymap);
+    const templateSettings = {
+        templateFolder: window.normalizeTemplateFolder(els.templateFolderInput.value.trim()),
+        includeSubfoldersForTemplates: els.templateIncludeSub.checked,
+        includeBuiltinTemplates: els.templateIncludeBuiltin.checked,
+        templateMenuGrouping: els.templateGrouping.value,
+        insertSpacingAroundTemplate: els.templateSpacing.checked
+    };
+    state.settings = { ...state.settings, ...templateSettings };
+    window.writeJson(window.CONFIG.SETTINGS_KEY, state.settings);
+    window.refreshTemplateSources();
     window.closeSettings();
 };
-window.resetSettings = function() { if(confirm("初期化しますか？")) { state.keymap = JSON.parse(JSON.stringify(window.DEFAULT_KEYMAP)); window.renderKeybindList(); } };
+window.resetSettings = function() {
+    if(confirm("初期化しますか？")) {
+        state.keymap = JSON.parse(JSON.stringify(window.DEFAULT_KEYMAP));
+        state.settings = { ...window.DEFAULT_SETTINGS };
+        window.renderTemplateSettingsForm();
+        window.renderKeybindList();
+        window.refreshTemplateSources();
+        window.writeJson(window.CONFIG.KEYMAP_KEY, state.keymap);
+        window.writeJson(window.CONFIG.SETTINGS_KEY, state.settings);
+    }
+};
