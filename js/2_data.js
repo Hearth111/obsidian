@@ -12,8 +12,6 @@ window.saveData = function() {
     }
 };
 
-// MODIFIED: startAutoBackup function removed as requested.
-
 window.exportData = function(filename) {
     const data = {
         notes: state.notes,

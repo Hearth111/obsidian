@@ -290,10 +290,9 @@ window.togglePrivacy = function() { state.isPrivacy = !state.isPrivacy; document
 
 window.createNewNote = function(prefix = "") { const n = prompt("新規ノート名:", prefix); if (n) { if (!state.notes[n]) state.notes[n] = "# " + n.split('/').pop() + "\n"; window.loadNote(n); window.saveData(); if(state.isPreview && !state.isSplit) window.togglePreviewMode(); } };
 
-// ▼ Modified: Added prefix argument to handle folder creation in specific path
-window.createNewFolder = function(prefix = "") { 
-    const n = prompt("新規フォルダ名:", prefix); 
-    if (n) { 
+window.createNewFolder = function(prefix = "") {
+    const n = prompt("新規フォルダ名:", prefix);
+    if (n) {
         const p = n + "/" + window.FOLDER_MARKER; 
         state.notes[p] = ""; 
         window.loadNote(p); 
