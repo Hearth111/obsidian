@@ -46,6 +46,38 @@
             </div>
         </div>
 
+        <div class="utility-bar">
+            <div class="utility-actions">
+                <div class="pill">クイック書式</div>
+                <div class="format-buttons">
+                    <button class="chip format-btn" data-action="bold" title="太字">𝐁</button>
+                    <button class="chip format-btn" data-action="italic" title="斜体">𝑰</button>
+                    <button class="chip format-btn" data-action="highlight" title="ハイライト">✦</button>
+                    <button class="chip format-btn" data-action="quote" title="引用">❝ ❞</button>
+                    <button class="chip format-btn" data-action="todo" title="チェックリスト">☑</button>
+                    <button class="chip format-btn" data-action="code" title="コードブロック">&lt;/&gt;</button>
+                    <button class="chip format-btn" data-action="link" title="リンク">🔗</button>
+                </div>
+            </div>
+            <div class="utility-stats">
+                <div class="stat-card">
+                    <div class="stat-label">ノート</div>
+                    <div class="stat-value" id="stat-note-count">0</div>
+                    <div class="stat-sub">保存済み</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">ブックマーク</div>
+                    <div class="stat-value" id="stat-bookmark-count">0</div>
+                    <div class="stat-sub">お気に入り</div>
+                </div>
+                <div class="stat-card highlight">
+                    <div class="stat-label">進捗と読了</div>
+                    <div class="stat-value" id="stat-task-summary">0/0</div>
+                    <div class="stat-sub" id="stat-reading-time">約1分で読了</div>
+                </div>
+            </div>
+        </div>
+
         <div id="tab-bar"></div>
 
         <div id="workspace">
@@ -92,11 +124,11 @@
     </div>
 </div>
 
-<div id="switcher-overlay">
-    <div id="switcher-modal">
-        <input type="text" id="switcher-input" placeholder="ファイル名を入力...">
-        <div id="switcher-list"></div>
-    </div>
+    <div id="switcher-overlay">
+        <div id="switcher-modal">
+            <input type="text" id="switcher-input" placeholder="ファイル名を入力...">
+            <div id="switcher-list"></div>
+        </div>
 </div>
 
 <div id="command-overlay">
