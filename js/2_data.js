@@ -7,13 +7,16 @@
 window.saveData = function() {
     window.writeJson(CONFIG.STORAGE_KEY, state.notes);
     state.isModified = true; // NEW: Mark state as modified after any edit to localStorage
+    if (state.currentTitle) {
+        window.enqueueSearchSync(state.currentTitle, state.notes[state.currentTitle]);
+    }
 };
 
 // MODIFIED: startAutoBackup function removed as requested.
 
 window.exportData = function(filename) {
-    const data = { 
-        notes: state.notes, 
+    const data = {
+        notes: state.notes,
         images: state.images,
         bookmarks: state.bookmarks,
         expandedFolders: state.expandedFolders,
@@ -36,9 +39,9 @@ window.exportData = function(filename) {
 window.importData = async function(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     if (!confirm("現在のデータを上書きして復元しますか？")) {
-        e.target.value = ''; 
+        e.target.value = '';
         return;
     }
 
@@ -46,7 +49,7 @@ window.importData = async function(e) {
     reader.onload = (v) => {
         try {
             const loaded = JSON.parse(v.target.result);
-            
+
             // Restore Data
             if (loaded.notes) {
                 state.notes = loaded.notes;
@@ -86,4 +89,133 @@ window.downloadNote = function() {
     d.href = URL.createObjectURL(new Blob([state.notes[state.currentTitle]], { type: "text/markdown" }));
     d.download = state.currentTitle.split('/').pop() + ".md";
     document.body.appendChild(d); d.click(); d.remove();
+};
+
+// --- IndexedDB Search Cache & Offline Bridge ---
+const SEARCH_DB_NAME = 'obsidian_v35_search';
+const SEARCH_STORE = 'fulltext';
+
+function openSearchDb() {
+    return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) return reject(new Error('IndexedDB unsupported'));
+        const req = indexedDB.open(SEARCH_DB_NAME, 1);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(SEARCH_STORE)) {
+                db.createObjectStore(SEARCH_STORE, { keyPath: 'title' });
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
 }
+
+function toSearchRecord(title, content) {
+    return { title, content: (content || '').toLowerCase(), version: `${(content || '').length}-${title.length}` };
+}
+
+window.enqueueSearchSync = function(title) {
+    if (!title) return;
+    state.pendingSearchUpdates.add(title);
+    if (state.searchSyncTimer) clearTimeout(state.searchSyncTimer);
+    state.searchSyncTimer = setTimeout(() => {
+        const targets = Array.from(state.pendingSearchUpdates);
+        state.pendingSearchUpdates.clear();
+        targets.forEach(t => window.updateSearchIndexEntry(t, state.notes[t] || ''));
+    }, 250);
+};
+
+window.updateSearchIndexEntry = async function(title, content) {
+    try {
+        const db = state.searchDb || await window.initSearchIndex();
+        if (!db) return;
+        const tx = db.transaction(SEARCH_STORE, 'readwrite');
+        tx.objectStore(SEARCH_STORE).put(toSearchRecord(title, content));
+    } catch (err) {
+        console.warn('Failed to update search cache', err);
+    }
+};
+
+window.initSearchIndex = async function() {
+    if (state.searchDb) return state.searchDb;
+    try {
+        state.searchDb = await openSearchDb();
+        return state.searchDb;
+    } catch (err) {
+        console.warn('Search cache unavailable', err);
+        return null;
+    }
+};
+
+window.primeSearchIndex = async function() {
+    const db = await window.initSearchIndex();
+    if (!db) return;
+    const tx = db.transaction(SEARCH_STORE, 'readwrite');
+    const store = tx.objectStore(SEARCH_STORE);
+    Object.entries(state.notes).forEach(([title, body]) => {
+        store.put(toSearchRecord(title, body));
+    });
+    state.searchCacheReady = true;
+};
+
+window.searchNotes = async function(query) {
+    const q = query.toLowerCase();
+    const db = await window.initSearchIndex();
+    if (!db) {
+        return Object.keys(state.notes).filter(k => k.toLowerCase().includes(q) || state.notes[k].toLowerCase().includes(q));
+    }
+
+    return new Promise((resolve) => {
+        const results = [];
+        const tx = db.transaction(SEARCH_STORE, 'readonly');
+        const store = tx.objectStore(SEARCH_STORE);
+        const cursor = store.openCursor();
+        cursor.onsuccess = (e) => {
+            const cur = e.target.result;
+            if (cur) {
+                const { title, content } = cur.value;
+                if (title.toLowerCase().includes(q) || content.includes(q)) results.push(title);
+                cur.continue();
+            } else {
+                resolve(results);
+            }
+        };
+        cursor.onerror = () => resolve([]);
+    });
+};
+
+window.lazyInitHeavyFeatures = function() {
+    const runner = (cb) => (window.requestIdleCallback ? requestIdleCallback(cb, { timeout: 1000 }) : setTimeout(cb, 200));
+    runner(() => window.primeSearchIndex());
+    runner(() => window.attachLocalBridge());
+    runner(() => window.restoreClipboardHistory());
+};
+
+window.attachLocalBridge = function() {
+    window.addEventListener('storage', (e) => {
+        if (e.key === window.CONFIG.STORAGE_KEY && e.newValue) {
+            try {
+                const latest = JSON.parse(e.newValue);
+                state.notes = latest;
+                window.renderSidebar();
+                if (state.currentTitle && state.notes[state.currentTitle]) {
+                    window.loadNote(state.currentTitle, true);
+                }
+                window.showBackupStatus('ローカル変更を同期しました', 2000);
+            } catch (err) {
+                console.warn('Failed to sync updated notes from bridge', err);
+            }
+        }
+    });
+};
+
+window.restoreClipboardHistory = function() {
+    const history = window.readJson(window.CONFIG.CLIPBOARD_KEY, []);
+    state.clipboardHistory = Array.isArray(history) ? history : [];
+};
+
+window.captureClipboard = function(text) {
+    if (!text) return;
+    state.clipboardHistory = [text, ...state.clipboardHistory.filter(t => t !== text)].slice(0, 20);
+    window.writeJson(window.CONFIG.CLIPBOARD_KEY, state.clipboardHistory);
+};

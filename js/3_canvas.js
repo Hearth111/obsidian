@@ -86,6 +86,19 @@ window.renderCanvas = function() {
     area.style.backgroundPosition = `${x}px ${y}px`;
     area.style.backgroundSize = `${20 * zoom}px ${20 * zoom}px`;
 
+    const rect = area.getBoundingClientRect();
+    const buffer = 240;
+    const view = {
+        left: (-x - buffer) / zoom,
+        top: (-y - buffer) / zoom,
+        right: (rect.width - x + buffer) / zoom,
+        bottom: (rect.height - y + buffer) / zoom
+    };
+    const visibleNodes = state.canvasData.nodes.filter(n =>
+        n.x + n.w >= view.left && n.x <= view.right && n.y + n.h >= view.top && n.y <= view.bottom
+    );
+    const visibleIds = new Set(visibleNodes.map(n => n.id));
+
     // モードに応じたUIカーソルの変更
     if (state.canvasMode === 'connect' || state.pendingConnectNodeId) {
         area.classList.add('connecting-mode');
@@ -97,9 +110,9 @@ window.renderCanvas = function() {
         document.getElementById('canvas-info').textContent = "アンカーをドラッグして接続 / ダブルクリックで付箋";
     }
 
-    // 1. Render Nodes
+    // 1. Render Nodes (virtualized)
     nodesEl.innerHTML = '';
-    state.canvasData.nodes.forEach(node => {
+    visibleNodes.forEach(node => {
         const el = document.createElement('div');
         el.id = node.id;
         el.className = `canvas-node type-${node.type || 'text'}`;
@@ -201,6 +214,7 @@ window.renderCanvas = function() {
     svgEl.innerHTML = defs; 
 
     state.canvasData.edges.forEach(edge => {
+        if (!visibleIds.has(edge.fromNode) && !visibleIds.has(edge.toNode)) return;
         const fromNode = state.canvasData.nodes.find(n => n.id === edge.fromNode);
         const toNode = state.canvasData.nodes.find(n => n.id === edge.toNode);
         if (fromNode && toNode) {

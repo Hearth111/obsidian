@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <title>Local Obsidian v35 (Canvas Tweak)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#20232a">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💎</text></svg>">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -187,5 +190,12 @@
 <script src="js/3_canvas.js"></script>
 <script src="js/5_ui.js"></script>
 <script src="js/4_app.js"></script>
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.warn('ServiceWorker registration failed', err));
+        });
+    }
+</script>
 </body>
 </html>

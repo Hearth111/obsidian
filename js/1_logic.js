@@ -11,7 +11,8 @@ window.CONFIG = {
     KEYMAP_KEY: 'obsidian_v35_keymap',
     SETTINGS_KEY: 'obsidian_v35_settings',
     TABS_KEY: 'obsidian_v35_tabs',
-    SIDEBAR_KEY: 'obsidian_v35_sidebar_collapsed'
+    SIDEBAR_KEY: 'obsidian_v35_sidebar_collapsed',
+    CLIPBOARD_KEY: 'obsidian_v35_clipboard'
 };
 
 window.readJson = function(key, fallback) {
@@ -86,6 +87,10 @@ window.state = {
     currentTitle: "Home",
     historyStack: [],
     historyIndex: -1,
+    clipboardHistory: [],
+    searchCacheReady: false,
+    searchDb: null,
+    pendingSearchUpdates: new Set(),
     
     // View Modes
     isDashboard: false,
@@ -147,6 +152,7 @@ window.CORE_COMMANDS = [
     { id: 'open-switcher', name: 'ファイルを開く...', handler: () => window.openSwitcher() },
     { id: 'open-command', name: 'コマンドパレットを開く...', handler: () => window.openCommandPalette() },
     { id: 'open-settings', name: '設定を開く', handler: () => window.openSettings() },
+    { id: 'clipboard-history', name: '📋 クリップボード履歴から貼り付け', handler: () => window.insertFromClipboardHistory() },
 ];
 
 window.COMMANDS = [...window.CORE_COMMANDS];
