@@ -371,11 +371,9 @@ window.showContextMenu = function(e, target) {
             });
             window.addMenu(m, "✏️ 名前変更", () => { const n = prompt("名前:", path); if (n) window.performRename(path, n); });
         } else {
-            // ▼ Modified: Add options for folder context menu
             window.addMenu(m, "＋ 新規ノート", () => window.createNewNote(path + "/"));
             window.addMenu(m, "＋ 新規フォルダ", () => window.createNewFolder(path + "/"));
             m.appendChild(document.createElement('hr'));
-            // ▲ Modified End
 
             window.addMenu(m, "✏️ フォルダ名変更", () => { const n = prompt("名前:", path); if (n) window.performRename(path, n); });
         }
