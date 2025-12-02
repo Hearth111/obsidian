@@ -445,7 +445,7 @@ window.updateStatusBar = function() {
 // 追加: 選択文字数の表示を更新する関数
 window.updateSelectedCount = function() {
     if (!els.editor || !els.selectedCount) return;
-    
+
     const start = els.editor.selectionStart;
     const end = els.editor.selectionEnd;
     const count = end - start;
@@ -457,6 +457,153 @@ window.updateSelectedCount = function() {
         els.selectedCount.textContent = '';
         els.selectedCount.style.display = 'none';
     }
+};
+
+window.hideFormatMenu = function() {
+    if (!els.formatMenu) return;
+    els.formatMenu.style.display = 'none';
+};
+
+window.computeSelectionRect = function(textarea, start, end) {
+    if (!textarea) return null;
+    const taRect = textarea.getBoundingClientRect();
+    const style = window.getComputedStyle(textarea);
+    const div = document.createElement('div');
+    ['fontSize', 'fontFamily', 'fontWeight', 'lineHeight', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderLeftWidth', 'borderRightWidth', 'borderTopWidth', 'borderBottomWidth', 'letterSpacing', 'wordSpacing', 'boxSizing'].forEach(key => {
+        div.style[key] = style[key];
+    });
+    div.style.position = 'absolute';
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.wordBreak = 'break-word';
+    div.style.overflowWrap = 'break-word';
+    div.style.visibility = 'hidden';
+    div.style.width = textarea.clientWidth + 'px';
+    div.style.minHeight = textarea.clientHeight + 'px';
+    div.style.top = taRect.top + 'px';
+    div.style.left = taRect.left + 'px';
+
+    div.textContent = textarea.value.substring(0, start);
+    const span = document.createElement('span');
+    const selectionText = textarea.value.substring(start, end) || ' ';
+    span.textContent = selectionText;
+    div.appendChild(span);
+
+    document.body.appendChild(div);
+    const spanRect = span.getBoundingClientRect();
+    document.body.removeChild(div);
+
+    return {
+        left: spanRect.left - textarea.scrollLeft,
+        top: spanRect.top - textarea.scrollTop,
+        width: Math.max(spanRect.width, 1),
+        height: Math.max(spanRect.height, parseFloat(style.lineHeight) || 16)
+    };
+};
+
+window.updateFormatMenu = function(e) {
+    if (!els.editor || !els.formatMenu) return;
+    const start = els.editor.selectionStart;
+    const end = els.editor.selectionEnd;
+    if (start === end) { window.hideFormatMenu(); return; }
+
+    els.formatMenu.style.display = 'flex';
+    els.formatMenu.style.visibility = 'hidden';
+    const rect = window.computeSelectionRect(els.editor, start, end);
+    if (!rect) { window.hideFormatMenu(); return; }
+
+    const menuRect = els.formatMenu.getBoundingClientRect();
+    const anchorLeft = rect.left + (rect.width / 2) + window.scrollX;
+    const anchorTop = rect.top + window.scrollY;
+
+    let left = anchorLeft - (menuRect.width / 2);
+    let top = anchorTop - menuRect.height - 10;
+    left = Math.min(Math.max(10, left), window.innerWidth - menuRect.width - 10);
+    top = Math.max(10, top);
+
+    els.formatMenu.style.left = `${left}px`;
+    els.formatMenu.style.top = `${top}px`;
+    els.formatMenu.style.visibility = 'visible';
+    els.formatMenu.style.display = 'flex';
+};
+
+window.applyFormatting = function(action) {
+    const ta = els.editor;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const value = ta.value;
+
+    const dispatchChange = () => ta.dispatchEvent(new Event('input', { bubbles: true }));
+    const wrapSelection = (before, after) => {
+        const selected = value.slice(start, end);
+        if (selected.startsWith(before) && selected.endsWith(after) && selected.length >= before.length + after.length) {
+            const inner = selected.slice(before.length, selected.length - after.length);
+            ta.setRangeText(inner, start, end, 'select');
+            ta.selectionStart = start;
+            ta.selectionEnd = start + inner.length;
+        } else {
+            const insert = before + selected + after;
+            ta.setRangeText(insert || before + after, start, end, 'select');
+            const base = start + before.length;
+            ta.selectionStart = base;
+            ta.selectionEnd = base + selected.length;
+        }
+        dispatchChange();
+    };
+
+    const applyPrefixEachLine = (prefix) => {
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const lineEndIndex = value.indexOf('\n', end);
+        const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+        const block = value.slice(lineStart, lineEnd);
+        const lines = block.split('\n');
+        const hasPrefix = lines.every(line => line.startsWith(prefix));
+        const next = lines.map(line => hasPrefix ? line.slice(prefix.length) : prefix + line).join('\n');
+        ta.setRangeText(next, lineStart, lineEnd, 'select');
+        ta.selectionStart = lineStart;
+        ta.selectionEnd = lineStart + next.length;
+        dispatchChange();
+    };
+
+    const applyHeading = () => {
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const lineEndIndex = value.indexOf('\n', lineStart);
+        const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+        const line = value.slice(lineStart, lineEnd);
+        const trimmed = line.replace(/^#\s+/, '');
+        const hasHeading = line.startsWith('# ');
+        const next = hasHeading ? trimmed : `# ${line}`;
+        ta.setRangeText(next, lineStart, lineEnd, 'select');
+        ta.selectionStart = lineStart;
+        ta.selectionEnd = lineStart + next.length;
+        dispatchChange();
+    };
+
+    switch(action) {
+        case 'bold':
+            wrapSelection('**', '**');
+            break;
+        case 'italic':
+            wrapSelection('*', '*');
+            break;
+        case 'code':
+            wrapSelection('`', '`');
+            break;
+        case 'quote':
+            applyPrefixEachLine('> ');
+            break;
+        case 'list':
+            applyPrefixEachLine('- ');
+            break;
+        case 'heading':
+            applyHeading();
+            break;
+        default:
+            break;
+    }
+
+    ta.focus();
+    window.updateFormatMenu();
 };
 
 window.toggleTimer = function() {
