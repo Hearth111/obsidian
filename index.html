@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Local Obsidian v35 (Canvas Tweak)</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💎</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="sidebar-header">
+        <button class="btn btn-primary" id="btn-new-note" style="flex:1;">＋ 新規</button>
+        <button class="btn" id="btn-today" style="flex:1;">📅 今日</button>
+        <input type="text" id="search-box" placeholder="🔍 検索...">
+    </div>
+    <div class="sidebar-content" id="sidebar-container">
+         <div id="search-result-area"><div class="section-title">検索結果</div><div id="search-list"></div></div>
+         <div id="bookmark-area"><div class="section-title">ブックマーク</div><div id="bookmark-list"></div></div>
+         <div class="section-title">エクスプローラー</div>
+         <div id="file-tree"></div>
+    </div>
+    <div class="sidebar-footer">
+        <button class="btn" id="btn-settings">⚙️ 設定</button>
+        <button class="btn" id="btn-export">📤 全保存</button>
+        <button class="btn" id="btn-import">📥 復元</button>
+        <input type="file" id="file-input" style="display:none" accept=".json">
+    </div>
+</div>
+
+<div id="main">
+    <div class="editor-header">
+        <button class="btn" id="btn-back" title="戻る">⬅</button>
+        <button class="btn" id="btn-fwd" title="進む">➡</button>
+        <span style="color:#666; font-size:0.8em; margin-left:5px;">Title:</span>
+        <input type="text" id="title-input" placeholder="Folder/NoteName">
+        
+        <div class="header-tools">
+            <button class="btn" id="btn-table">▦ 表</button>
+            <button class="btn" id="btn-template">📝 テンプレ</button>
+            <button class="btn" id="btn-dashboard">✅ 全タスク</button>
+            <button class="btn" id="btn-download">⬇️ MD保存</button>
+            <button class="btn" id="btn-split">🌗 2画面</button>
+            <button class="btn" id="btn-mode">👁 プレビュー</button>
+            <button class="btn" id="btn-privacy" title="プライバシーモード">🛡️</button>
+        </div>
+    </div>
+    
+    <div id="workspace">
+        <textarea id="editor" placeholder="# Welcome v35&#13;&#13;JSファイルを分割し、復元機能を修正しました。"></textarea>
+        <div id="preview"></div>
+        
+        <div id="canvas-area">
+            <div id="canvas-layer">
+                <svg id="canvas-svg" style="position:absolute; top:0; left:0; overflow:visible; pointer-events:none; width:100%; height:100%;">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                        </marker>
+                    </defs>
+                </svg>
+                <div id="canvas-nodes"></div>
+            </div>
+            <div id="canvas-controls">
+                <button class="btn btn-active" id="cv-mode-pointer" title="選択/移動モード">❖</button>
+                <button class="btn" id="cv-mode-pan" title="全体移動モード(Hand)">✋</button>
+                <button class="btn" id="cv-mode-connect" title="ノード接続モード">🔗</button>
+                
+                <span style="border-right:1px solid #666; margin:0 5px;"></span>
+                <button class="btn" id="cv-add-group" title="グループ追加">🔲</button>
+                <button class="btn" id="cv-zoom-in">＋</button>
+                <button class="btn" id="cv-zoom-out">－</button>
+                <button class="btn" id="cv-reset">⟲</button>
+                <span id="canvas-info">Double Click: Node | Shift+Drag: Connect</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-bar">
+        <div class="status-group">
+            <div id="timer-display">🍅 25:00</div>
+            <div id="word-count">0 words</div>
+            <div id="selected-count" style="margin-left:15px; display:none;"></div>
+            <div id="backup-status" style="font-size:0.8em; color:#666; margin-left:10px;"></div>
+        </div>
+        <div id="progress-container">
+            <span id="task-stats">0/0</span>
+            <div id="progress-bar"><div id="progress-fill"></div></div>
+        </div>
+    </div>
+</div>
+
+<div id="switcher-overlay">
+    <div id="switcher-modal">
+        <input type="text" id="switcher-input" placeholder="ファイル名を入力...">
+        <div id="switcher-list"></div>
+    </div>
+</div>
+
+<div id="command-overlay">
+    <div id="command-modal">
+        <input type="text" id="command-input" placeholder="> コマンドを入力...">
+        <div id="command-list"></div>
+    </div>
+</div>
+
+<div id="settings-overlay">
+    <div id="settings-modal">
+        <h2>⚙️ 設定</h2>
+        <div class="settings-section">
+            <h3>ショートカットキー設定</h3>
+            <div id="keybind-list"></div>
+        </div>
+        <div class="settings-footer">
+            <button class="btn btn-primary" id="btn-save-settings">保存して閉じる</button>
+            <button class="btn" id="btn-reset-settings" style="color:#e57373">初期化</button>
+        </div>
+    </div>
+</div>
+
+<div id="slide-overlay">
+    <div id="slide-content"></div>
+    <div id="slide-controls">Esc: 終了 | ← →: 移動</div>
+</div>
+
+<div id="context-menu"></div>
+<div id="template-menu">
+    <div data-tmpl="meeting">議事録フォーマット</div>
+    <div data-tmpl="bug">バグ報告</div>
+    <div data-tmpl="idea">アイデアメモ</div>
+</div>
+
+<script src="js/1_logic.js"></script>
+<script src="js/2_data.js"></script>
+<script src="js/3_canvas.js"></script>
+<script src="js/5_ui.js"></script>
+<script src="js/4_app.js"></script>
+</body>
+</html>
