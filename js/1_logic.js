@@ -9,7 +9,8 @@ window.CONFIG = {
     BOOKMARKS_KEY: 'obsidian_v35_bookmarks',
     IMAGES_KEY: 'obsidian_v35_images',
     KEYMAP_KEY: 'obsidian_v35_keymap',
-    SETTINGS_KEY: 'obsidian_v35_settings'
+    SETTINGS_KEY: 'obsidian_v35_settings',
+    TABS_KEY: 'obsidian_v35_tabs'
 };
 
 window.readJson = function(key, fallback) {
@@ -43,21 +44,6 @@ window.showBackupStatus = function(message, duration = 3000) {
     }
 };
 
-window.BUILTIN_TEMPLATES = {
-    'meeting': {
-        name: '議事録フォーマット',
-        body: `## 議事録\n- 日時: \n- 参加者: \n\n### 議題\n1. \n\n### 決定事項\n- \n\n### Next Action\n- [ ] `
-    },
-    'bug': {
-        name: 'バグ報告',
-        body: `## バグ報告\n- 発生環境: \n- 再現手順:\n  1. \n  2. \n- 期待値: \n- 実際の結果: \n`
-    },
-    'idea': {
-        name: 'アイデアメモ',
-        body: `## アイデア\n- タイトル: \n- 背景: \n- 解決したい課題:\n- 解決策: \n- メモ:\n`
-    }
-};
-
 window.CANVAS_MARKER = '---type: canvas---';
 window.FOLDER_MARKER = '.keep';
 
@@ -73,7 +59,6 @@ window.DEFAULT_KEYMAP = {
 window.DEFAULT_SETTINGS = {
     templateFolder: 'Templates',
     includeSubfoldersForTemplates: true,
-    includeBuiltinTemplates: true,
     templateMenuGrouping: 'path', // 'path' | 'flat'
     insertSpacingAroundTemplate: true
 };
@@ -95,6 +80,7 @@ window.state = {
     bookmarks: [],
     keymap: window.DEFAULT_KEYMAP,
     settings: window.DEFAULT_SETTINGS,
+    openTabs: [],
     templateCatalog: [],
     currentTitle: "Home",
     historyStack: [],

@@ -28,27 +28,29 @@
     </div>
 </div>
 
-<div id="main">
-    <div class="editor-header">
-        <button class="btn" id="btn-back" title="戻る">⬅</button>
-        <button class="btn" id="btn-fwd" title="進む">➡</button>
-        <span style="color:#666; font-size:0.8em; margin-left:5px;">Title:</span>
-        <input type="text" id="title-input" placeholder="Folder/NoteName">
-        
-        <div class="header-tools">
-            <button class="btn" id="btn-table">▦ 表</button>
-            <button class="btn" id="btn-template">📝 テンプレ</button>
+    <div id="main">
+        <div class="editor-header">
+            <button class="btn" id="btn-back" title="戻る">⬅</button>
+            <button class="btn" id="btn-fwd" title="進む">➡</button>
+            <span style="color:#666; font-size:0.8em; margin-left:5px;">Title:</span>
+            <input type="text" id="title-input" placeholder="Folder/NoteName">
+
+            <div class="header-tools">
+                <button class="btn" id="btn-table">▦ 表</button>
+                <button class="btn" id="btn-template">📝 テンプレ</button>
             <button class="btn" id="btn-dashboard">✅ 全タスク</button>
             <button class="btn" id="btn-download">⬇️ MD保存</button>
             <button class="btn" id="btn-split">🌗 2画面</button>
             <button class="btn" id="btn-mode">👁 プレビュー</button>
             <button class="btn" id="btn-privacy" title="プライバシーモード">🛡️</button>
+            </div>
         </div>
-    </div>
-    
-    <div id="workspace">
-        <textarea id="editor" placeholder="# Welcome v35&#13;&#13;JSファイルを分割し、復元機能を修正しました。"></textarea>
-        <div id="preview"></div>
+
+        <div id="tab-bar"></div>
+
+        <div id="workspace">
+            <textarea id="editor" placeholder="# Welcome v35&#13;&#13;JSファイルを分割し、復元機能を修正しました。"></textarea>
+            <div id="preview"></div>
         
         <div id="canvas-area">
             <div id="canvas-layer">
@@ -117,23 +119,20 @@
 <div id="settings-overlay">
     <div id="settings-modal">
         <h2>⚙️ 設定</h2>
-        <div class="settings-section">
-            <h3>テンプレート設定</h3>
-            <div class="setting-row">
-                <label for="template-folder-input">テンプレートフォルダ</label>
-                <input id="template-folder-input" type="text" placeholder="例: Templates" />
-            </div>
-            <div class="setting-row checkbox">
-                <label><input type="checkbox" id="template-include-sub" /> サブフォルダ内もテンプレートとして扱う</label>
-            </div>
-            <div class="setting-row checkbox">
-                <label><input type="checkbox" id="template-include-builtin" /> 組み込みテンプレートも表示する</label>
-            </div>
-            <div class="setting-row">
-                <label for="template-grouping">メニュー表示</label>
-                <select id="template-grouping">
-                    <option value="path">フォルダ階層を維持</option>
-                    <option value="flat">ファイル名だけを表示</option>
+            <div class="settings-section">
+                <h3>テンプレート設定</h3>
+                <div class="setting-row">
+                    <label for="template-folder-input">テンプレートフォルダ</label>
+                    <input id="template-folder-input" type="text" placeholder="例: Templates" />
+                </div>
+                <div class="setting-row checkbox">
+                    <label><input type="checkbox" id="template-include-sub" /> サブフォルダ内もテンプレートとして扱う</label>
+                </div>
+                <div class="setting-row">
+                    <label for="template-grouping">メニュー表示</label>
+                    <select id="template-grouping">
+                        <option value="path">フォルダ階層を維持</option>
+                        <option value="flat">ファイル名だけを表示</option>
                 </select>
             </div>
             <div class="setting-row checkbox">
