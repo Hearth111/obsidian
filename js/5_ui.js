@@ -84,6 +84,59 @@ window.insertTable = function() {
     document.execCommand('insertText', false, m + "\n");
 };
 
+window.applyQuickFormat = function(action) {
+    const target = els.editor;
+    if (!target) return;
+
+    const start = target.selectionStart || 0;
+    const end = target.selectionEnd || 0;
+    const value = target.value;
+    const selected = value.slice(start, end);
+    const placeholder = selected || "テキスト";
+    let insert = placeholder;
+
+    switch (action) {
+        case 'bold':
+            insert = `**${placeholder}**`;
+            break;
+        case 'italic':
+            insert = `*${placeholder}*`;
+            break;
+        case 'highlight':
+            insert = `==${placeholder}==`;
+            break;
+        case 'quote': {
+            const block = selected || "引用文";
+            insert = block.split(/\n/).map(line => `> ${line}`).join("\n");
+            break;
+        }
+        case 'todo': {
+            const block = selected || "タスク内容";
+            insert = block.split(/\n/).map(line => `- [ ] ${line}`).join("\n");
+            break;
+        }
+        case 'code': {
+            const block = selected || "コード";
+            insert = '\n\n```\n' + block + '\n```\n\n';
+            break;
+        }
+        case 'link': {
+            const url = prompt("リンク先URL", "https://");
+            if (!url) return;
+            insert = `[${placeholder}](${url})`;
+            break;
+        }
+        default:
+            return;
+    }
+
+    target.value = value.slice(0, start) + insert + value.slice(end);
+    const caret = start + insert.length;
+    target.focus();
+    target.setSelectionRange(caret, caret);
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+};
+
 window.normalizeTemplateFolder = function(folderName) {
     if (!folderName) return '';
     return folderName.replace(/^\/+|\/+$/g, '');
@@ -287,6 +340,7 @@ window.renderSidebar = function() {
         }
     });
     document.getElementById('bookmark-area').style.display = state.bookmarks.length ? 'block' : 'none';
+    window.updateUtilityStats();
 };
 
 window.createTreeDom = function(node) {
@@ -427,7 +481,9 @@ window.deleteItem = function(path) {
 
 window.updateStatusBar = function() {
     const t = els.editor.value;
-    els.wordCount.textContent = t.length + " chars";
+    const wordCount = t.trim() ? t.trim().split(/\s+/).length : 0;
+    const readingMinutes = Math.max(1, Math.ceil(wordCount / 220));
+    els.wordCount.textContent = `${wordCount}語 / ${t.length}文字 · 約${readingMinutes}分で読了`;
     const m = t.match(/- \[[ x]\]/g) || [];
     const d = m.filter(x => x.includes('[x]')).length;
     els.taskStats.textContent = `${d}/${m.length}`;
@@ -440,6 +496,8 @@ window.updateStatusBar = function() {
         els.selectedCount.textContent = '';
         els.selectedCount.style.display = 'none';
     }
+
+    window.updateUtilityStats();
 };
 
 // 追加: 選択文字数の表示を更新する関数
@@ -451,12 +509,27 @@ window.updateSelectedCount = function() {
     const count = end - start;
 
     if (count > 0) {
-        els.selectedCount.textContent = `Selected: ${count} chars`;
+        els.selectedCount.textContent = `選択中: ${count}文字`;
         els.selectedCount.style.display = 'block';
     } else {
         els.selectedCount.textContent = '';
         els.selectedCount.style.display = 'none';
     }
+};
+
+window.updateUtilityStats = function() {
+    if (!els.statNoteCount) return;
+
+    const text = els.editor.value || "";
+    const tasks = text.match(/- \[[ x]\]/g) || [];
+    const done = tasks.filter(x => x.includes('[x]')).length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const readingMinutes = Math.max(1, Math.ceil(words / 220));
+
+    els.statNoteCount.textContent = Object.keys(state.notes).length;
+    els.statBookmarkCount.textContent = state.bookmarks.length;
+    els.statTaskSummary.textContent = `${done}/${tasks.length} タスク`;
+    els.statReadingTime.textContent = words ? `約${readingMinutes}分で読了` : 'すぐに読了';
 };
 
 window.toggleTimer = function() {
