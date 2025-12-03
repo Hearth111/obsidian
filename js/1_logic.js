@@ -105,6 +105,7 @@ window.state = {
     // Canvas State
     canvasData: { nodes: [], edges: [], x: 0, y: 0, zoom: 1 },
     canvasMode: 'edit', // 'edit' (pointer) or 'pan' (hand)
+    anchorSelectionActive: false,
     
     // Canvas Interaction Flags
     isDraggingCanvas: false,

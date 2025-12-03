@@ -104,7 +104,7 @@ body.privacy-active .editor-header input { filter: blur(4px); }
 /* Nodes */
 .canvas-node {
     position: absolute; display: flex; flex-direction: column;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.5); border-radius: 6px; overflow: hidden;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.5); border-radius: 6px; overflow: visible;
     padding: 0; /* Padding handled by internal layout or specific types if needed */
 }
 
@@ -175,7 +175,7 @@ body.privacy-active .editor-header input { filter: blur(4px); }
     pointer-events: none;
 }
 .anchor-point:hover { background: var(--accent-color); transform: scale(1.1); }
-.canvas-node:hover .anchor-point, .canvas-node:focus-within .anchor-point { opacity: 1; pointer-events: auto; }
+.canvas-node:hover .anchor-point, .canvas-node:focus-within .anchor-point, .canvas-node.show-anchors .anchor-point { opacity: 1; pointer-events: auto; }
 .anchor-top { top: -8px; left: 50%; transform: translate(-50%, 0); }
 .anchor-right { right: -8px; top: 50%; transform: translate(0, -50%); }
 .anchor-bottom { bottom: -8px; left: 50%; transform: translate(-50%, 0); }
