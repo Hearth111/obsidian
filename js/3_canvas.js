@@ -5,6 +5,7 @@
 const generateId = () => 'node-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 
 const CANVAS_ANCHORS = ['top', 'right', 'bottom', 'left'];
+const CANVAS_NODE_HIT_PADDING = 24;
 
 function getAnchorPosition(node, anchor) {
     if (!node) return { x: 0, y: 0 };
@@ -17,7 +18,7 @@ function getAnchorPosition(node, anchor) {
     }
 }
 
-function getNearestAnchor(node, x, y, threshold = 20) {
+function getNearestAnchor(node, x, y, threshold = 32) {
     let best = null;
     CANVAS_ANCHORS.forEach(a => {
         const p = getAnchorPosition(node, a);
@@ -25,6 +26,16 @@ function getNearestAnchor(node, x, y, threshold = 20) {
         if (dist <= threshold && (!best || dist < best.dist)) best = { anchor: a, dist };
     });
     return best ? best.anchor : null;
+}
+
+function findNodeAtPosition(x, y, padding = 0, excludeId = null) {
+    return state.canvasData.nodes.find(n =>
+        n.id !== excludeId &&
+        x >= n.x - padding &&
+        x <= n.x + n.w + padding &&
+        y >= n.y - padding &&
+        y <= n.y + n.h + padding
+    );
 }
 
 function snapToGrid(value, grid = 20, tolerance = 4) {
@@ -399,11 +410,9 @@ window.handleCanvasMouseMove = function(e) {
         const rect = document.getElementById('canvas-area').getBoundingClientRect();
         const mx = (e.clientX - rect.left - state.canvasData.x) / zoom;
         const my = (e.clientY - rect.top - state.canvasData.y) / zoom;
-        const target = state.canvasData.nodes.find(n =>
-            n.id !== state.dragNodeId && mx >= n.x - 10 && mx <= n.x + n.w + 10 && my >= n.y - 10 && my <= n.y + n.h + 10
-        );
+        const target = findNodeAtPosition(mx, my, CANVAS_NODE_HIT_PADDING, state.dragNodeId);
         if (target) {
-            const anchor = getNearestAnchor(target, mx, my, 25) || 'center';
+            const anchor = getNearestAnchor(target, mx, my, 32) || 'center';
             const pos = getAnchorPosition(target, anchor);
             state.tempLine.x2 = pos.x;
             state.tempLine.y2 = pos.y;
@@ -430,11 +439,9 @@ window.handleCanvasMouseUp = function(e) {
         const rect = document.getElementById('canvas-area').getBoundingClientRect();
         const mx = (e.clientX - rect.left - state.canvasData.x) / state.canvasData.zoom;
         const my = (e.clientY - rect.top - state.canvasData.y) / state.canvasData.zoom;
-        const target = state.canvasData.nodes.find(n =>
-            n.id !== state.dragNodeId && mx >= n.x - 15 && mx <= n.x + n.w + 15 && my >= n.y - 15 && my <= n.y + n.h + 15
-        );
+        const target = findNodeAtPosition(mx, my, CANVAS_NODE_HIT_PADDING + 6, state.dragNodeId);
         if (target) {
-            const anchor = getNearestAnchor(target, mx, my, 25) || 'center';
+            const anchor = getNearestAnchor(target, mx, my, 32) || 'center';
             window.tryConnectNodes(
                 state.connectStart?.nodeId || state.dragNodeId,
                 target.id,

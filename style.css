@@ -163,20 +163,23 @@ body.privacy-active .editor-header input { filter: blur(4px); }
 
 .anchor-point {
     position: absolute;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     background: rgba(255,255,255,0.15);
     border: 1px solid rgba(255,255,255,0.4);
     border-radius: 50%;
     cursor: crosshair;
     z-index: 30;
-    transition: transform 0.1s, background 0.1s;
+    transition: transform 0.1s, background 0.1s, opacity 0.1s;
+    opacity: 0;
+    pointer-events: none;
 }
 .anchor-point:hover { background: var(--accent-color); transform: scale(1.1); }
-.anchor-top { top: -6px; left: 50%; transform: translate(-50%, 0); }
-.anchor-right { right: -6px; top: 50%; transform: translate(0, -50%); }
-.anchor-bottom { bottom: -6px; left: 50%; transform: translate(-50%, 0); }
-.anchor-left { left: -6px; top: 50%; transform: translate(0, -50%); }
+.canvas-node:hover .anchor-point, .canvas-node:focus-within .anchor-point { opacity: 1; pointer-events: auto; }
+.anchor-top { top: -8px; left: 50%; transform: translate(-50%, 0); }
+.anchor-right { right: -8px; top: 50%; transform: translate(0, -50%); }
+.anchor-bottom { bottom: -8px; left: 50%; transform: translate(-50%, 0); }
+.anchor-left { left: -8px; top: 50%; transform: translate(0, -50%); }
 
 .canvas-node.type-note { background: #20242e; border: 1px solid #3d4254; color: #dce5ff; }
 .note-node-body { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
