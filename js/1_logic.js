@@ -111,6 +111,7 @@ window.state = {
     isDraggingNode: false,
     isResizing: false,
     isConnecting: false,
+    connectionMode: null, // 'drag' | 'click'
 
     pendingConnectNodeId: null, // 追加: 接続待機中のソースノードID
 

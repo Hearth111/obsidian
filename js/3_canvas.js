@@ -118,7 +118,7 @@ window.renderCanvas = function() {
             : "Click source node to start connection";
     } else {
         area.classList.remove('connecting-mode');
-        document.getElementById('canvas-info').textContent = "アンカーをドラッグして接続 / ダブルクリックで付箋";
+        document.getElementById('canvas-info').textContent = "アンカーをクリックして接続 / ダブルクリックで付箋";
     }
 
     // 1. Render Nodes (virtualized)
@@ -212,7 +212,8 @@ window.renderCanvas = function() {
             const a = document.createElement('div');
             a.className = `anchor-point anchor-${anchor}`;
             a.dataset.anchor = anchor;
-            a.onmousedown = (e) => window.startAnchorDrag(e, node.id, anchor);
+            a.onmousedown = (e) => e.stopPropagation();
+            a.onclick = (e) => window.handleAnchorClick(e, node.id, anchor);
             el.appendChild(a);
         });
 
@@ -229,7 +230,7 @@ window.renderCanvas = function() {
         const fromNode = state.canvasData.nodes.find(n => n.id === edge.fromNode);
         const toNode = state.canvasData.nodes.find(n => n.id === edge.toNode);
         if (fromNode && toNode) {
-            window.drawEdge(svgEl, fromNode, toNode, edge.id);
+            window.drawEdge(svgEl, fromNode, toNode, edge);
         }
     });
 
@@ -247,9 +248,11 @@ window.renderCanvas = function() {
     }
 };
 
-window.drawEdge = function(svg, n1, n2, edgeId) {
-    const start = getAnchorPosition(n1, edge.fromAnchor);
-    const end = getAnchorPosition(n2, edge.toAnchor);
+window.drawEdge = function(svg, n1, n2, edge) {
+    const startAnchor = edge?.fromAnchor || 'center';
+    const endAnchor = edge?.toAnchor || 'center';
+    const start = getAnchorPosition(n1, startAnchor);
+    const end = getAnchorPosition(n2, endAnchor);
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const cx1 = start.x + (end.x - start.x) * 0.25;
@@ -261,19 +264,44 @@ window.drawEdge = function(svg, n1, n2, edgeId) {
     path.setAttribute('marker-end', 'url(#arrowhead)');
     path.oncontextmenu = (e) => {
         e.preventDefault(); e.stopPropagation();
-        window.showCanvasContextMenu(e, 'edge', edgeId);
+        window.showCanvasContextMenu(e, 'edge', edge.id);
     };
     svg.appendChild(path);
 };
 
-window.startAnchorDrag = function(e, nodeId, anchor) {
+window.handleAnchorClick = function(e, nodeId, anchor) {
     e.stopPropagation();
+
+    if (state.connectStart) {
+        if (state.connectStart.nodeId === nodeId && state.connectStart.anchor === anchor) {
+            state.isConnecting = false;
+            state.connectionMode = null;
+            state.connectStart = null;
+            state.dragNodeId = null;
+            state.tempLine = null;
+            window.renderCanvas();
+            return;
+        }
+
+        window.tryConnectNodes(state.connectStart.nodeId, nodeId, state.connectStart.anchor || 'center', anchor || 'center');
+        state.isConnecting = false;
+        state.connectionMode = null;
+        state.connectStart = null;
+        state.dragNodeId = null;
+        state.tempLine = null;
+        window.renderCanvas();
+        window.saveCanvasData();
+        return;
+    }
+
     state.isConnecting = true;
+    state.connectionMode = 'click';
     state.dragNodeId = nodeId;
     state.connectStart = { nodeId, anchor };
     const node = state.canvasData.nodes.find(n => n.id === nodeId);
     const start = getAnchorPosition(node, anchor);
     state.tempLine = { x1: start.x, y1: start.y, x2: start.x, y2: start.y };
+    window.renderCanvas();
 };
 
 window.startDragNode = function(e, id) {
@@ -320,6 +348,7 @@ window.startDragNode = function(e, id) {
     // Shift+Dragでの接続
     if (e.shiftKey) {
         state.isConnecting = true;
+        state.connectionMode = 'drag';
         state.dragNodeId = id;
         const n = state.canvasData.nodes.find(node => node.id === id);
         const startX = n.x + n.w / 2;
@@ -436,6 +465,9 @@ window.handleCanvasMouseMove = function(e) {
 window.handleCanvasMouseUp = function(e) {
     // 接続完了処理（Shiftドラッグ・アンカードラッグ共通）
     if (state.isConnecting) {
+        if (state.connectionMode === 'click' && e.target.closest('.anchor-point')) {
+            return;
+        }
         const rect = document.getElementById('canvas-area').getBoundingClientRect();
         const mx = (e.clientX - rect.left - state.canvasData.x) / state.canvasData.zoom;
         const my = (e.clientY - rect.top - state.canvasData.y) / state.canvasData.zoom;
@@ -461,6 +493,7 @@ window.handleCanvasMouseUp = function(e) {
     state.isDraggingNode = false;
     state.isResizing = false;
     state.isConnecting = false;
+    state.connectionMode = null;
     state.dragNodeId = null;
     state.tempLine = null;
     state.connectStart = null;
