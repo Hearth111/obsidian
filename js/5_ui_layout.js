@@ -4,6 +4,8 @@
 
 // --- Pane Management ---
 
+const MAX_PANES = 12;
+
 window.ensurePaneSizes = function() {
     if (!Array.isArray(state.paneSizes)) state.paneSizes = [];
     const needsReset = state.paneSizes.length !== state.panes.length || state.paneSizes.some(v => !v || v <= 0);
@@ -136,7 +138,7 @@ window.renderPanes = function() {
             const previewDiv = document.createElement('div');
             previewDiv.className = 'pane-preview';
             previewDiv.innerHTML = window.parseMarkdown(noteContent);
-            window.decoratePreview(previewDiv);
+            window.decoratePreview(previewDiv, pane.title);
             content.appendChild(previewDiv);
         } else if (pane.type === 'canvas') {
             // Setup canvas container
@@ -230,8 +232,8 @@ window.toggleDualView = function() {
         return;
     }
 
-    if (state.panes.length >= 6) {
-        alert("最大6画面までです");
+    if (state.panes.length >= MAX_PANES) {
+        alert(`最大${MAX_PANES}画面までです`);
         return;
     }
 
@@ -268,8 +270,8 @@ window.loadNoteIntoPane = function(index, title) {
 
 window.openNoteInNewPane = function(path) {
     if (!state.notes[path]) return;
-    if (state.panes.length >= 6) {
-        alert("最大6画面までです");
+    if (state.panes.length >= MAX_PANES) {
+        alert(`最大${MAX_PANES}画面までです`);
         return;
     }
     const content = state.notes[path];
