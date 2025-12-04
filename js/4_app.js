@@ -207,8 +207,6 @@ window.persistTabs = function() {
 };
 
 window.loadNote = function(title, isHistoryNav = false) {
-    if (state.isDashboard) window.toggleDashboard();
-    
     if (!state.panes[state.activePaneIndex]) state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor' };
     state.panes[state.activePaneIndex].title = title;
     
@@ -217,7 +215,7 @@ window.loadNote = function(title, isHistoryNav = false) {
         state.panes[state.activePaneIndex].type = 'canvas';
         window.loadCanvasData(content);
     } else {
-        if (state.panes[state.activePaneIndex].type === 'canvas') {
+        if (state.panes[state.activePaneIndex].type === 'canvas' || state.panes[state.activePaneIndex].type === 'dashboard') {
             state.panes[state.activePaneIndex].type = 'editor';
         }
     }
@@ -248,12 +246,31 @@ window.pushHistory = function(title) {
 
 window.goBack = function() { if (state.historyIndex > 0) window.loadNote(state.historyStack[--state.historyIndex], true); };
 window.goForward = function() { if (state.historyIndex < state.historyStack.length - 1) window.loadNote(state.historyStack[++state.historyIndex], true); };
-window.updateNavButtons = function() { 
-    document.getElementById('btn-back').disabled = state.historyIndex <= 0; 
-    document.getElementById('btn-fwd').disabled = state.historyIndex >= state.historyStack.length - 1; 
+window.updateNavButtons = function() {
+    document.getElementById('btn-back').disabled = state.historyIndex <= 0;
+    document.getElementById('btn-fwd').disabled = state.historyIndex >= state.historyStack.length - 1;
 };
 
-window.toggleDashboard = function() { state.isDashboard = !state.isDashboard; window.renderPanes(); };
+window.toggleDashboard = function() {
+    const existingIndex = state.panes.findIndex(p => p.type === 'dashboard');
+    if (existingIndex !== -1) {
+        window.setActivePane(existingIndex);
+        return;
+    }
+
+    if (state.panes.length >= MAX_PANES) {
+        alert(`最大${MAX_PANES}画面までです`);
+        return;
+    }
+
+    const newPane = { id: state.panes.length, title: 'Dashboard', type: 'dashboard' };
+    state.panes.push(newPane);
+    state.paneSizes.push(1);
+    state.activePaneIndex = state.panes.length - 1;
+    window.persistPaneSizes();
+    window.renderPanes();
+    window.renderTabBar();
+};
 window.togglePrivacy = function() { state.isPrivacy = !state.isPrivacy; document.body.classList.toggle('privacy-active', state.isPrivacy); document.getElementById('btn-privacy').classList.toggle('btn-active', state.isPrivacy); };
 
 window.createNewNote = function(prefix = "") {

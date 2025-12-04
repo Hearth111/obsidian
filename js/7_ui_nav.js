@@ -278,15 +278,15 @@ window.toggleGlobalTask = function(title, index) {
     
     // ダッシュボード更新（コンテナを探して再描画）
     const dashboardContainer = document.getElementById('dashboard-container');
-    if (dashboardContainer || state.isDashboard) {
-         window.renderTaskDashboard(dashboardContainer || els.preview);
-    }
+    const target = dashboardContainer || els.preview;
+    if (target) window.renderTaskDashboard(target);
 };
 
 window.toggleShowCompleted = function(cb) {
     state.showCompletedTasks = cb.checked;
     const dashboardContainer = document.getElementById('dashboard-container');
-    window.renderTaskDashboard(dashboardContainer || els.preview);
+    const target = dashboardContainer || els.preview;
+    if (target) window.renderTaskDashboard(target);
 };
 
 // --- Search & Switcher ---

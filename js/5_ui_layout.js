@@ -5,6 +5,12 @@
 // --- Pane Management ---
 
 const MAX_PANES = 12;
+const MULTIROW_THRESHOLD = 7;
+const MULTIROW_COLUMNS = 6;
+
+window.shouldUseMultiRowLayout = function() {
+    return state.panes.length >= MULTIROW_THRESHOLD;
+};
 
 window.ensurePaneSizes = function() {
     if (!Array.isArray(state.paneSizes)) state.paneSizes = [];
@@ -26,6 +32,7 @@ window.persistPaneSizes = function() {
 };
 
 window.applyPaneSizes = function() {
+    if (window.shouldUseMultiRowLayout()) return; // Multi-row layout uses equal sizing
     document.querySelectorAll('#workspace-grid .pane-wrapper').forEach((wrap, idx) => {
         wrap.style.flexGrow = state.paneSizes[idx] || 1;
         wrap.style.flexBasis = '0';
@@ -70,15 +77,16 @@ window.renderPanes = function() {
     const grid = document.getElementById('workspace-grid');
     if (!grid) return;
 
-    if (state.isDashboard) {
-        grid.className = 'grid-1';
-        grid.innerHTML = `<div id="dashboard-container" class="pane" style="overflow:auto; width:100%; height:100%;"></div>`;
-        const container = document.getElementById('dashboard-container');
-        return window.renderTaskDashboard(container);
-    }
-
     window.ensurePaneSizes();
-    grid.className = `grid-${state.panes.length}`;
+    const useMultiRow = window.shouldUseMultiRowLayout();
+    grid.className = useMultiRow ? 'grid-multi-row' : `grid-${state.panes.length}`;
+    if (useMultiRow) {
+        grid.style.gridTemplateColumns = `repeat(${MULTIROW_COLUMNS}, minmax(0, 1fr))`;
+        grid.style.gridAutoRows = 'minmax(0, 1fr)';
+    } else {
+        grid.style.gridTemplateColumns = '';
+        grid.style.gridAutoRows = '';
+    }
     grid.innerHTML = '';
 
     state.panes.forEach((pane, index) => {
@@ -134,7 +142,7 @@ window.renderPanes = function() {
         controls.className = 'pane-controls';
 
         // Mode toggle button
-        if (pane.type !== 'canvas') {
+        if (pane.type !== 'canvas' && pane.type !== 'dashboard') {
             const modeBtn = document.createElement('button');
             modeBtn.className = 'pane-btn' + (pane.type === 'preview' ? ' btn-active' : '');
             modeBtn.innerHTML = pane.type === 'editor' ? '👁' : '✎';
@@ -160,15 +168,21 @@ window.renderPanes = function() {
         const content = document.createElement('div');
         content.className = 'pane-content';
 
-        const noteContent = state.notes[pane.title] || "";
-
-        if (pane.type === 'editor') {
+        if (pane.type === 'dashboard') {
+            const dashboardContainer = document.createElement('div');
+            dashboardContainer.className = 'pane-dashboard';
+            dashboardContainer.id = 'dashboard-container';
+            window.renderTaskDashboard(dashboardContainer);
+            content.appendChild(dashboardContainer);
+        } else if (pane.type === 'editor') {
+            const noteContent = state.notes[pane.title] || "";
             const textarea = document.createElement('textarea');
             textarea.className = 'pane-editor';
             textarea.value = noteContent;
             // Event listener is attached globally in 4_app.js via delegation
             content.appendChild(textarea);
         } else if (pane.type === 'preview') {
+            const noteContent = state.notes[pane.title] || "";
             const previewDiv = document.createElement('div');
             previewDiv.className = 'pane-preview';
             previewDiv.innerHTML = window.parseMarkdown(noteContent);
@@ -209,7 +223,7 @@ window.renderPanes = function() {
         wrapper.appendChild(paneEl);
         grid.appendChild(wrapper);
 
-        if (index < state.panes.length - 1) {
+        if (!useMultiRow && index < state.panes.length - 1) {
             const resizer = document.createElement('div');
             resizer.className = 'pane-resizer';
             resizer.onpointerdown = (e) => window.startResizePane(e, index, index + 1);
@@ -227,7 +241,7 @@ window.setActivePane = function(index) {
     if (state.activePaneIndex === index && state.currentTitle === state.panes[index].title) return;
     state.activePaneIndex = index;
     const pane = state.panes[index];
-    state.currentTitle = pane.title;
+    if (pane.type !== 'dashboard') state.currentTitle = pane.title;
     
     // Canvas Handling: If activating a canvas pane, verify global canvas state matches
     if (pane.type === 'canvas') {
@@ -239,7 +253,7 @@ window.setActivePane = function(index) {
     
     // Update Header
     const titleInput = document.getElementById('title-input');
-    if(titleInput) titleInput.value = pane.title;
+    if(titleInput && pane.type !== 'dashboard') titleInput.value = pane.title;
 
     window.renderPanes();
     window.renderTabBar();
@@ -247,7 +261,7 @@ window.setActivePane = function(index) {
 
 window.toggleDualView = function() {
     const active = state.panes[state.activePaneIndex];
-    if (!active || active.type === 'canvas') return;
+    if (!active || active.type === 'canvas' || active.type === 'dashboard') return;
 
     let editorIndex = state.panes.findIndex(p => p.title === active.title && p.type === 'editor');
     if (editorIndex === -1) {
@@ -295,8 +309,25 @@ window.closePane = function(index) {
     state.panes.forEach((p, i) => p.id = i);
     state.activePaneIndex = Math.min(state.activePaneIndex, state.panes.length - 1);
     window.rebalancePaneSizes();
-    window.setActivePane(state.activePaneIndex);
-};
+
+    const newActive = state.panes[state.activePaneIndex];
+    if (newActive) {
+        if (newActive.type === 'canvas') {
+            const content = state.notes[newActive.title];
+            window.loadCanvasData(content);
+        } else {
+            state.isCanvasMode = false;
+        }
+        if (newActive.type !== 'dashboard') {
+            state.currentTitle = newActive.title;
+            const titleInput = document.getElementById('title-input');
+            if (titleInput) titleInput.value = newActive.title;
+        }
+    }
+
+    window.renderPanes();
+    window.renderTabBar();
+}; 
 
 window.reorderPanes = function(fromIndex, toIndex) {
     if (fromIndex === toIndex) return;
@@ -336,7 +367,7 @@ window.openNoteInNewPane = function(path) {
 
 window.togglePaneMode = function(index) {
     const pane = state.panes[index];
-    if (pane.type === 'canvas') return; // Canvas has no toggle
+    if (pane.type === 'canvas' || pane.type === 'dashboard') return; // Non-note panes have no toggle
     pane.type = pane.type === 'editor' ? 'preview' : 'editor';
     window.renderPanes();
 };
@@ -350,10 +381,10 @@ window.updateModeToggleButton = function() {
     const pane = state.panes[state.activePaneIndex];
     if (!btn) return;
 
-    if (!pane || pane.type === 'canvas') {
+    if (!pane || pane.type === 'canvas' || pane.type === 'dashboard') {
         btn.textContent = '👁 プレビュー';
         btn.classList.remove('btn-active');
-        btn.disabled = !pane || pane.type === 'canvas';
+        btn.disabled = !pane || pane.type === 'canvas' || pane.type === 'dashboard';
         return;
     }
 
@@ -372,7 +403,7 @@ window.updateDualViewButton = function() {
     const active = state.panes[state.activePaneIndex];
     if (!btn) return;
 
-    btn.disabled = !!(active && active.type === 'canvas');
+    btn.disabled = !!(active && (active.type === 'canvas' || active.type === 'dashboard'));
     if (btn.disabled) {
         btn.classList.remove('btn-active');
         return;
