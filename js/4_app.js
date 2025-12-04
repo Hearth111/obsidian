@@ -234,28 +234,41 @@ window.updateNavButtons = function() {
 window.toggleDashboard = function() { state.isDashboard = !state.isDashboard; window.renderPanes(); };
 window.togglePrivacy = function() { state.isPrivacy = !state.isPrivacy; document.body.classList.toggle('privacy-active', state.isPrivacy); document.getElementById('btn-privacy').classList.toggle('btn-active', state.isPrivacy); };
 
-window.createNewNote = function(prefix = "") { const n = prompt("新規ノート名:", prefix); if (n) { if (!state.notes[n]) state.notes[n] = "# " + n.split('/').pop() + "\n"; window.loadNote(n); window.saveData(); } };
+window.createNewNote = function(prefix = "") {
+    const n = prompt("新規ノート名:", prefix);
+    if (!n) return;
+
+    if (!state.notes[n]) {
+        state.notes[n] = "# " + n.split('/').pop() + "\n";
+    }
+
+    window.invalidateTemplateCache();
+    window.loadNote(n);
+    window.saveData();
+};
 
 window.createNewFolder = function(prefix = "") {
     const n = prompt("新規フォルダ名:", prefix);
     if (n) {
-        const p = n + "/" + window.FOLDER_MARKER; 
-        state.notes[p] = ""; 
-        window.loadNote(p); 
-        window.saveData(); 
-    } 
+        const p = n + "/" + window.FOLDER_MARKER;
+        state.notes[p] = "";
+        window.invalidateTemplateCache();
+        window.loadNote(p);
+        window.saveData();
+    }
 };
 
 window.openToday = function() { 
     const d = new Date(); 
-    const t = `${d.getFullYear()}/${('0' + (d.getMonth() + 1)).slice(-2)}/${('0' + d.getDate()).slice(-2)}/Daily`; 
-    if (!state.notes[t]) { 
-        state.notes[t] = `# ${t.split('/').pop()}\n\n## タスク\n- [ ] \n`; 
-        window.loadNote(t); 
-        window.saveData(); 
-    } else { 
-        window.loadNote(t); 
-    } 
+    const t = `${d.getFullYear()}/${('0' + (d.getMonth() + 1)).slice(-2)}/${('0' + d.getDate()).slice(-2)}/Daily`;
+    if (!state.notes[t]) {
+        state.notes[t] = `# ${t.split('/').pop()}\n\n## タスク\n- [ ] \n`;
+        window.invalidateTemplateCache();
+        window.loadNote(t);
+        window.saveData();
+    } else {
+        window.loadNote(t);
+    }
 };
 
 window.handleGlobalKeys = function(e) {

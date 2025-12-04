@@ -548,6 +548,33 @@ window.updateCanvasModeUI = function() {
     }
 };
 
+function appendCanvasPalette(menuEl, node, labelText) {
+    const wrapper = document.createElement('div');
+    const label = document.createElement('div');
+    label.textContent = labelText;
+    const palette = document.createElement('div');
+    palette.className = 'color-palette';
+
+    window.CANVAS_COLORS.forEach(color => {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = color;
+        swatch.onclick = (e) => {
+            e.stopPropagation();
+            if(node.locked) return alert("固定されています");
+            node.color = color;
+            window.renderCanvas();
+            window.saveCanvasData();
+            menuEl.style.display = 'none';
+        };
+        palette.appendChild(swatch);
+    });
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(palette);
+    menuEl.appendChild(wrapper);
+}
+
 window.showCanvasContextMenu = function(e, type, id) {
     e.preventDefault(); e.stopPropagation();
     const m = document.getElementById('context-menu');
@@ -570,43 +597,9 @@ window.showCanvasContextMenu = function(e, type, id) {
                  const n = prompt("グループ名:", node.text);
                  if(n) { node.text = n; window.renderCanvas(); window.saveCanvasData(); }
              });
-             const p = document.createElement('div');
-             p.className = 'color-palette';
-             window.CANVAS_COLORS.forEach(c => {
-                 const s = document.createElement('div');
-                 s.className = 'color-swatch';
-                 s.style.backgroundColor = c;
-                 s.onclick = (e) => {
-                     e.stopPropagation();
-                     if(node.locked) return alert("固定されています");
-                     node.color = c;
-                     window.renderCanvas();
-                     window.saveCanvasData();
-                     m.style.display = 'none';
-                 };
-                 p.appendChild(s);
-             });
-            m.appendChild(document.createElement('div').appendChild(document.createTextNode("🎨 色変更:")));
-            m.appendChild(p);
+            appendCanvasPalette(m, node, "🎨 色変更:");
         } else if (node.type === 'text') {
-             const p = document.createElement('div');
-             p.className = 'color-palette';
-             window.CANVAS_COLORS.forEach(c => {
-                 const s = document.createElement('div');
-                 s.className = 'color-swatch';
-                 s.style.backgroundColor = c;
-                 s.onclick = (e) => {
-                     e.stopPropagation();
-                     if(node.locked) return alert("固定されています");
-                     node.color = c;
-                     window.renderCanvas();
-                     window.saveCanvasData();
-                     m.style.display = 'none';
-                 };
-                 p.appendChild(s);
-             });
-             m.appendChild(document.createElement('div').appendChild(document.createTextNode("🎨 背景色:")));
-             m.appendChild(p);
+            appendCanvasPalette(m, node, "🎨 背景色:");
         }
         
         m.appendChild(document.createElement('hr'));

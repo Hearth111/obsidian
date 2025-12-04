@@ -60,6 +60,8 @@ window.importData = async function(e) {
                 state.notes = loaded;
             }
 
+            window.invalidateTemplateCache();
+
             // Write to LocalStorage
             window.saveData();
             window.writeJson(CONFIG.IMAGES_KEY, state.images);
