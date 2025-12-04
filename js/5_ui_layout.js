@@ -53,6 +53,52 @@ window.getDesktopBounds = function() {
     return { width: rect.width, height: rect.height, x: rect.left, y: rect.top };
 };
 
+window.hideLayoutOverlay = function() {
+    const overlay = document.getElementById('layout-template-overlay');
+    if (overlay) overlay.style.display = 'none';
+};
+
+window.renderLayoutOverlay = function(template, hoverIndex = -1) {
+    if (!template || !template.columns || !template.columns.length) return;
+    let overlay = document.getElementById('layout-template-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'layout-template-overlay';
+        document.getElementById('workspace-grid').appendChild(overlay);
+    }
+
+    const bounds = window.getDesktopBounds();
+    overlay.style.display = 'block';
+    overlay.style.width = `${bounds.width}px`;
+    overlay.style.height = `${bounds.height}px`;
+
+    overlay.innerHTML = '';
+    const zones = window.computeTemplateZones(template, bounds.width);
+    zones.forEach((zone, idx) => {
+        const div = document.createElement('div');
+        div.className = 'layout-zone' + (idx === hoverIndex ? ' active' : '');
+        div.style.left = `${zone.start}px`;
+        div.style.width = `${zone.width}px`;
+        div.textContent = `${template.name || 'テンプレート'} (${Math.round(zone.ratio * 100)}%)`;
+        overlay.appendChild(div);
+    });
+};
+
+window.computeTemplateZones = function(template, boundsWidth) {
+    const total = template.columns.reduce((sum, v) => sum + Math.max(0, v), 0) || 1;
+    const available = Math.max(MIN_WINDOW_WIDTH, boundsWidth - DESKTOP_PADDING * 2);
+    let cursor = DESKTOP_PADDING;
+    const zones = template.columns.map((col, idx) => {
+        const width = idx === template.columns.length - 1
+            ? (boundsWidth - DESKTOP_PADDING) - cursor
+            : Math.max(MIN_WINDOW_WIDTH, Math.round(available * (col / total)));
+        const zone = { start: cursor, width: Math.min(width, boundsWidth - cursor - DESKTOP_PADDING), ratio: (col / total) };
+        cursor += width;
+        return zone;
+    });
+    return zones;
+};
+
 window.createPaneLayout = function(index) {
     const { width, height } = window.getDesktopBounds();
     const baseWidth = Math.max(MIN_WINDOW_WIDTH, Math.min(width * 0.6, 560));
@@ -293,17 +339,33 @@ window.startWindowDrag = function(e, index) {
     const startLeft = layout.x || 0;
     const startTop = layout.y || 0;
     const bounds = window.getDesktopBounds();
+    const template = state.layoutTemplates[state.activeLayoutTemplate];
 
     const onMove = (ev) => {
-        const dx = ev.clientX - startX;
-        const dy = ev.clientY - startY;
-        layout.x = Math.max(0, Math.min(startLeft + dx, bounds.width - (layout.width || MIN_WINDOW_WIDTH)));
-        layout.y = Math.max(0, Math.min(startTop + dy, bounds.height - (layout.height || MIN_WINDOW_HEIGHT)));
+        const useTemplate = ev.shiftKey && template;
+        if (useTemplate) {
+            const zones = window.computeTemplateZones(template, bounds.width);
+            const localX = Math.max(0, Math.min(ev.clientX - bounds.x, bounds.width));
+            const hovered = zones.findIndex(z => localX >= z.start && localX <= z.start + z.width);
+            const targetIndex = hovered !== -1 ? hovered : 0;
+            const zone = zones[targetIndex];
+            layout.width = Math.max(MIN_WINDOW_WIDTH, zone.width);
+            layout.x = Math.max(0, Math.min(zone.start, bounds.width - layout.width - DESKTOP_PADDING));
+            layout.y = Math.max(0, Math.min(startTop + (ev.clientY - startY), bounds.height - (layout.height || MIN_WINDOW_HEIGHT)));
+            window.renderLayoutOverlay(template, targetIndex);
+        } else {
+            window.hideLayoutOverlay();
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            layout.x = Math.max(0, Math.min(startLeft + dx, bounds.width - (layout.width || MIN_WINDOW_WIDTH)));
+            layout.y = Math.max(0, Math.min(startTop + dy, bounds.height - (layout.height || MIN_WINDOW_HEIGHT)));
+        }
         window.persistPaneLayouts();
         window.renderPanes();
     };
 
     const onUp = () => {
+        window.hideLayoutOverlay();
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
     };
@@ -436,8 +498,10 @@ window.toggleDualView = function() {
 
 window.splitPane = function() { window.toggleDualView(); };
 
-window.closePane = function(index) {
+window.closePane = function(index, options = {}) {
+    const skipTabSync = !!options.skipTabSync;
     if (index < 0 || index >= state.panes.length) return;
+    const closedTitle = state.panes[index]?.title;
     state.panes.splice(index, 1);
     state.paneSizes.splice(index, 1);
     state.paneLayouts.splice(index, 1);
@@ -467,6 +531,34 @@ window.closePane = function(index) {
     window.persistPaneLayouts();
     window.renderPanes();
     window.renderTabBar();
+
+    if (state.activeSelectionTarget && !document.body.contains(state.activeSelectionTarget)) {
+        state.activeSelectionTarget = null;
+        window.hideFormatMenu();
+        window.updateSelectedCount();
+    }
+
+    if (!skipTabSync && closedTitle && !state.panes.some(p => p.title === closedTitle)) {
+        window.removeTabEntry(closedTitle);
+        if (state.currentTitle === closedTitle) {
+            const fallback = state.openTabs[state.openTabs.length - 1];
+            if (fallback) window.loadNote(fallback);
+        }
+    }
+};
+
+window.closePanesByTitle = function(title, options = {}) {
+    let removed = false;
+    let idx = state.panes.findIndex(p => p.title === title);
+    while (idx !== -1) {
+        removed = true;
+        window.closePane(idx, { skipTabSync: true });
+        idx = state.panes.findIndex(p => p.title === title);
+    }
+    if (removed && !options.skipTabUpdate) {
+        window.removeTabEntry(title);
+    }
+    return removed;
 };
 
 window.reorderPanes = function(fromIndex, toIndex) {
@@ -590,6 +682,15 @@ window.toggleSidebar = function() {
 };
 
 // --- Tab System ---
+window.removeTabEntry = function(title) {
+    const idx = state.openTabs.indexOf(title);
+    if (idx === -1) return -1;
+    state.openTabs.splice(idx, 1);
+    window.persistTabs();
+    window.renderTabBar();
+    return idx;
+};
+
 window.renderTabBar = function() {
     const tabBar = document.getElementById('tab-bar');
     if (!tabBar) return;
@@ -679,16 +780,17 @@ window.showTabContextMenu = function(e, title, index) {
 };
 
 window.closeTab = function(title) {
-    const idx = state.openTabs.indexOf(title);
+    const idx = window.removeTabEntry(title);
     if (idx === -1) return;
-    state.openTabs.splice(idx, 1);
-    const nextIndex = Math.min(idx, state.openTabs.length - 1);
-    const nextTitle = title === state.currentTitle ? state.openTabs[nextIndex] : state.currentTitle;
-    window.persistTabs();
-    window.renderTabBar();
-    if (title === state.currentTitle) {
-        if (nextTitle) {
-            window.loadNote(nextTitle);
+
+    const wasCurrent = state.currentTitle === title;
+    window.closePanesByTitle(title, { skipTabUpdate: true });
+
+    if (wasCurrent) {
+        const fallbackIndex = Math.min(idx, state.openTabs.length - 1);
+        const fallbackTitle = state.openTabs[fallbackIndex];
+        if (fallbackTitle) {
+            window.loadNote(fallbackTitle);
         } else {
             state.currentTitle = '';
             state.activePaneIndex = -1;
@@ -707,6 +809,47 @@ window.renderTemplateSettingsForm = function() {
     document.getElementById('template-spacing').checked = !!state.settings.insertSpacingAroundTemplate;
     const dailyInput = document.getElementById('daily-note-format');
     if (dailyInput) dailyInput.value = state.settings.dailyNoteFormat || window.DEFAULT_SETTINGS.dailyNoteFormat;
+    window.renderLayoutTemplateSettings();
+};
+
+window.renderLayoutTemplateSettings = function() {
+    const textarea = document.getElementById('layout-template-lines');
+    const select = document.getElementById('layout-template-active');
+    if (!textarea || !select) return;
+
+    const lines = state.layoutTemplates.map((t) => {
+        const label = t.name || 'テンプレート';
+        const columns = Array.isArray(t.columns) ? t.columns.join(',') : '';
+        return `${label}: ${columns}`;
+    });
+    textarea.value = lines.join('\n');
+
+    select.innerHTML = '';
+    state.layoutTemplates.forEach((t, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = t.name || `テンプレート ${idx + 1}`;
+        select.appendChild(opt);
+    });
+    select.value = Math.min(state.activeLayoutTemplate, state.layoutTemplates.length - 1);
+};
+
+window.parseLayoutTemplatesFromInput = function(raw) {
+    if (!raw) return window.DEFAULT_LAYOUT_SETTINGS.templates;
+    const lines = raw.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    const templates = [];
+    lines.forEach(line => {
+        const [namePart, columnsPart] = line.includes(':') ? line.split(/:(.+)/).slice(0, 2) : [line, line];
+        const name = (namePart || 'テンプレート').trim();
+        const cols = (columnsPart || '').split(',').map(v => parseFloat(v.trim())).filter(v => !Number.isNaN(v) && v > 0);
+        if (cols.length) templates.push({ name, columns: cols });
+    });
+    return templates.length ? templates : window.DEFAULT_LAYOUT_SETTINGS.templates;
+};
+
+window.persistLayoutTemplates = function() {
+    const payload = { templates: state.layoutTemplates, activeIndex: state.activeLayoutTemplate };
+    window.writeJson(window.CONFIG.LAYOUT_TEMPLATES_KEY, payload);
 };
 
 window.switchSettingsPanel = function(panelId) {
@@ -766,6 +909,9 @@ window.saveSettings = function() {
     };
     state.settings = { ...state.settings, ...templateSettings };
     window.writeJson(window.CONFIG.SETTINGS_KEY, state.settings);
+    state.layoutTemplates = window.parseLayoutTemplatesFromInput(document.getElementById('layout-template-lines').value);
+    state.activeLayoutTemplate = Math.min(parseInt(document.getElementById('layout-template-active').value || '0', 10) || 0, state.layoutTemplates.length - 1);
+    window.persistLayoutTemplates();
     window.refreshTemplateSources();
     window.closeSettings();
 };
@@ -774,10 +920,13 @@ window.resetSettings = function() {
     if(confirm("初期化しますか？")) {
         state.keymap = JSON.parse(JSON.stringify(window.DEFAULT_KEYMAP));
         state.settings = { ...window.DEFAULT_SETTINGS };
+        state.layoutTemplates = window.DEFAULT_LAYOUT_SETTINGS.templates;
+        state.activeLayoutTemplate = window.DEFAULT_LAYOUT_SETTINGS.activeIndex;
         window.renderTemplateSettingsForm();
         window.renderKeybindList();
         window.refreshTemplateSources();
         window.writeJson(window.CONFIG.KEYMAP_KEY, state.keymap);
         window.writeJson(window.CONFIG.SETTINGS_KEY, state.settings);
+        window.persistLayoutTemplates();
     }
 }

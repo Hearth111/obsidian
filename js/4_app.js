@@ -23,6 +23,7 @@ window.initAppData = function () {
         commandOverlay: id('command-overlay'), commandInput: id('command-input'), commandList: id('command-list'),
         settingsOverlay: id('settings-overlay'), keybindList: id('keybind-list'),
         templateFolderInput: id('template-folder-input'), templateIncludeSub: id('template-include-sub'), templateGrouping: id('template-grouping'), templateSpacing: id('template-spacing'),
+        layoutTemplateLines: id('layout-template-lines'), layoutTemplateActive: id('layout-template-active'),
         phraseOverlay: id('phrase-overlay'), phraseList: id('phrase-list'), phraseTitle: id('phrase-title'),
         timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
@@ -52,6 +53,9 @@ window.initAppData = function () {
     state.keymap = window.readJson(window.CONFIG.KEYMAP_KEY, window.DEFAULT_KEYMAP);
     const savedSettings = window.readJson(window.CONFIG.SETTINGS_KEY, window.DEFAULT_SETTINGS);
     state.settings = { ...window.DEFAULT_SETTINGS, ...savedSettings };
+    const savedLayout = window.readJson(window.CONFIG.LAYOUT_TEMPLATES_KEY, window.DEFAULT_LAYOUT_SETTINGS);
+    state.layoutTemplates = Array.isArray(savedLayout.templates) && savedLayout.templates.length ? savedLayout.templates : window.DEFAULT_LAYOUT_SETTINGS.templates;
+    state.activeLayoutTemplate = Number.isInteger(savedLayout.activeIndex) ? savedLayout.activeIndex : window.DEFAULT_LAYOUT_SETTINGS.activeIndex;
     state.isSidebarCollapsed = localStorage.getItem(window.CONFIG.SIDEBAR_KEY) === '1';
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
     state.clipboardHistory = window.readJson(window.CONFIG.CLIPBOARD_KEY, []);
@@ -111,8 +115,9 @@ function setupEventListeners() {
 
     const selectionWatcher = (e) => {
         if(e.target.classList.contains('pane-editor')) {
-            window.updateSelectedCount();
-            window.updateFormatMenu(e);
+            state.activeSelectionTarget = e.target;
+            window.updateSelectedCount(e.target);
+            window.updateFormatMenu(e.target);
         }
     };
     document.addEventListener('mouseup', selectionWatcher);
@@ -252,6 +257,20 @@ window.loadNote = function(title, isHistoryNav = false) {
     window.updateSelectedCount();
     
     els.title.value = title;
+};
+
+window.updateSelectedCount = function(target) {
+    const counter = document.getElementById('selected-count');
+    if (!counter) return;
+    const ta = target && target.classList && target.classList.contains('pane-editor') ? target : els.editor;
+    if (!ta) { counter.style.display = 'none'; return; }
+    const count = Math.abs((ta.selectionEnd || 0) - (ta.selectionStart || 0));
+    if (count > 0) {
+        counter.textContent = `${count} chars selected`;
+        counter.style.display = 'inline-block';
+    } else {
+        counter.style.display = 'none';
+    }
 };
 
 window.pushHistory = function(title) {

@@ -131,6 +131,35 @@ details[open] > summary .folder-icon { transform: rotate(90deg); }
     background: rgba(255,255,255,0.02);
 }
 
+#layout-template-overlay {
+    position: absolute;
+    pointer-events: none;
+    inset: 0;
+    z-index: 50;
+}
+
+.layout-zone {
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    border: 1px dashed rgba(127,109,242,0.6);
+    background: rgba(127, 109, 242, 0.08);
+    color: #ddd;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 6px;
+    font-size: 0.9em;
+    border-radius: 10px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.layout-zone.active {
+    background: rgba(127, 109, 242, 0.18);
+    border-color: var(--accent-color);
+    color: #fff;
+}
+
 .pane.window-pane {
     position: absolute;
     background: var(--bg-color);
