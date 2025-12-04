@@ -817,13 +817,28 @@ window.renderLayoutTemplateSettings = function() {
     const select = document.getElementById('layout-template-active');
     if (!textarea || !select) return;
 
-    const lines = state.layoutTemplates.map((t) => {
+    textarea.value = window.composeLayoutTemplateText(state.layoutTemplates);
+    window.populateLayoutTemplateSelect(select);
+    select.value = Math.min(state.activeLayoutTemplate, state.layoutTemplates.length - 1);
+    window.renderLayoutTemplateCards();
+    window.updateLayoutButtonLabel();
+};
+
+window.composeLayoutTemplateText = function(list) {
+    return list.map((t) => {
         const label = t.name || 'テンプレート';
         const columns = Array.isArray(t.columns) ? t.columns.join(',') : '';
         return `${label}: ${columns}`;
-    });
-    textarea.value = lines.join('\n');
+    }).join('\n');
+};
 
+window.cloneLayoutTemplates = function(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map(t => ({ name: t.name, columns: Array.isArray(t.columns) ? [...t.columns] : [] }));
+};
+
+window.populateLayoutTemplateSelect = function(select) {
+    if (!select) return;
     select.innerHTML = '';
     state.layoutTemplates.forEach((t, idx) => {
         const opt = document.createElement('option');
@@ -831,11 +846,267 @@ window.renderLayoutTemplateSettings = function() {
         opt.textContent = t.name || `テンプレート ${idx + 1}`;
         select.appendChild(opt);
     });
-    select.value = Math.min(state.activeLayoutTemplate, state.layoutTemplates.length - 1);
+};
+
+window.renderLayoutTemplateCards = function() {
+    const list = document.getElementById('layout-template-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (!state.layoutTemplates.length) {
+        const empty = document.createElement('div');
+        empty.className = 'layout-card-empty';
+        empty.textContent = 'まだテンプレートがありません。「＋ レイアウト作成」から追加してください';
+        list.appendChild(empty);
+        return;
+    }
+
+    state.layoutTemplates.forEach((t, idx) => {
+        const card = document.createElement('div');
+        card.className = 'layout-card' + (idx === state.activeLayoutTemplate ? ' active' : '');
+
+        const title = document.createElement('div');
+        title.className = 'layout-card-title';
+        title.textContent = t.name || `テンプレート ${idx + 1}`;
+        card.appendChild(title);
+
+        const badges = document.createElement('div');
+        badges.className = 'layout-card-badges';
+        (t.columns || []).forEach((col, cIdx) => {
+            const chip = document.createElement('span');
+            chip.className = 'layout-chip';
+            chip.textContent = `列${cIdx + 1}: ${Math.round(col)}%`;
+            badges.appendChild(chip);
+        });
+        card.appendChild(badges);
+
+        const actions = document.createElement('div');
+        actions.className = 'layout-card-actions';
+
+        const activateBtn = document.createElement('button');
+        activateBtn.className = 'btn';
+        activateBtn.textContent = idx === state.activeLayoutTemplate ? '使用中' : 'これを使う';
+        activateBtn.onclick = () => window.setActiveLayoutTemplate(idx, { persist: true });
+        actions.appendChild(activateBtn);
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn';
+        editBtn.textContent = '編集';
+        editBtn.onclick = () => window.openLayoutBuilder(idx);
+        actions.appendChild(editBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn';
+        deleteBtn.style.color = '#e57373';
+        deleteBtn.textContent = '削除';
+        deleteBtn.onclick = () => window.deleteLayoutTemplate(idx);
+        actions.appendChild(deleteBtn);
+
+        card.appendChild(actions);
+        list.appendChild(card);
+    });
+};
+
+window.setActiveLayoutTemplate = function(index, options = {}) {
+    if (!state.layoutTemplates.length) return;
+    const target = Math.min(Math.max(index, 0), state.layoutTemplates.length - 1);
+    state.activeLayoutTemplate = target;
+    const select = document.getElementById('layout-template-active');
+    if (select) select.value = target;
+    if (options.persist) window.persistLayoutTemplates();
+    window.renderLayoutTemplateCards();
+    window.updateLayoutButtonLabel();
+};
+
+window.deleteLayoutTemplate = function(index) {
+    if (index < 0 || index >= state.layoutTemplates.length) return;
+    if (!confirm('このレイアウトテンプレートを削除しますか？')) return;
+    state.layoutTemplates.splice(index, 1);
+    if (!state.layoutTemplates.length) {
+        state.layoutTemplates = window.cloneLayoutTemplates(window.DEFAULT_LAYOUT_SETTINGS.templates);
+    }
+    state.activeLayoutTemplate = Math.min(state.activeLayoutTemplate, state.layoutTemplates.length - 1);
+    window.persistLayoutTemplates();
+    window.renderLayoutTemplateSettings();
+};
+
+window.updateLayoutButtonLabel = function() {
+    const btn = document.getElementById('btn-layout-menu');
+    const tmpl = state.layoutTemplates[state.activeLayoutTemplate];
+    if (!btn) return;
+    btn.textContent = tmpl ? `🧩 ${tmpl.name || 'レイアウト'}` : '🧩 レイアウト';
+};
+
+window.showLayoutQuickMenu = function(anchor) {
+    const menu = document.getElementById('layout-menu');
+    if (!menu || !anchor) return;
+    menu.innerHTML = '';
+
+    state.layoutTemplates.forEach((tmpl, idx) => {
+        const item = document.createElement('div');
+        item.className = 'layout-menu-item';
+        const meta = Array.isArray(tmpl.columns) ? tmpl.columns.map(v => `${Math.round(v)}%`).join(' / ') : '';
+        item.innerHTML = `<span>${tmpl.name || `テンプレート ${idx + 1}`}</span><span class="layout-menu-meta">${meta}</span>`;
+        item.onclick = (e) => {
+            e.stopPropagation();
+            window.setActiveLayoutTemplate(idx, { persist: true });
+            menu.style.display = 'none';
+        };
+        menu.appendChild(item);
+    });
+
+    const createItem = document.createElement('div');
+    createItem.className = 'layout-menu-item';
+    createItem.innerHTML = '<span>＋ レイアウトを作成</span><span class="layout-menu-meta">エディターを開く</span>';
+    createItem.onclick = (e) => { e.stopPropagation(); menu.style.display = 'none'; window.openLayoutBuilder(); };
+    menu.appendChild(createItem);
+
+    menu.style.display = 'block';
+    const rect = anchor.getBoundingClientRect();
+    const preferredLeft = rect.right - menu.offsetWidth;
+    menu.style.top = `${rect.bottom + 6}px`;
+    menu.style.left = `${Math.max(12, preferredLeft)}px`;
+};
+
+window.hideLayoutMenu = function() {
+    const menu = document.getElementById('layout-menu');
+    if (menu) menu.style.display = 'none';
+};
+
+// --- Layout Builder ---
+const BUILDER_MIN_COLUMN = 8;
+window.layoutBuilderState = { columns: [], name: '', editIndex: -1 };
+
+window.openLayoutBuilder = function(index = -1) {
+    const target = state.layoutTemplates[index] || { name: '新規レイアウト', columns: [50, 50] };
+    window.layoutBuilderState = {
+        columns: Array.isArray(target.columns) && target.columns.length ? [...target.columns] : [50, 50],
+        name: target.name || '',
+        editIndex: index
+    };
+    document.getElementById('layout-builder-name').value = window.layoutBuilderState.name;
+    document.getElementById('layout-builder-overlay').style.display = 'flex';
+    window.renderLayoutBuilderPreview();
+};
+
+window.closeLayoutBuilder = function() {
+    document.getElementById('layout-builder-overlay').style.display = 'none';
+};
+
+window.resetLayoutBuilderColumns = function() {
+    window.layoutBuilderState.columns = [50, 50];
+    window.renderLayoutBuilderPreview();
+};
+
+window.addLayoutBuilderColumn = function() {
+    const cols = window.layoutBuilderState.columns;
+    const avg = Math.max(BUILDER_MIN_COLUMN, Math.round(cols.reduce((a, b) => a + b, 0) / (cols.length + 1)));
+    cols.push(avg);
+    window.renderLayoutBuilderPreview();
+};
+
+window.renderLayoutBuilderPreview = function() {
+    const container = document.getElementById('layout-builder-preview');
+    const summary = document.getElementById('layout-builder-summary');
+    if (!container) return;
+    container.innerHTML = '';
+    const total = window.layoutBuilderState.columns.reduce((a, b) => a + b, 0) || 1;
+    const sumText = window.layoutBuilderState.columns.map(v => `${Math.round((v / total) * 100)}%`).join(' / ');
+    if (summary) summary.textContent = `現在の比率: ${sumText}`;
+
+    window.layoutBuilderState.columns.forEach((col, idx) => {
+        const block = document.createElement('div');
+        block.className = 'layout-block';
+        block.style.flexBasis = `${(col / total) * 100}%`;
+        block.draggable = true;
+        block.dataset.index = idx;
+        block.ondragstart = (e) => {
+            e.dataTransfer.setData('text/plain', idx.toString());
+            e.dataTransfer.effectAllowed = 'move';
+        };
+        block.ondragover = (e) => e.preventDefault();
+        block.ondrop = (e) => {
+            e.preventDefault();
+            const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+            if (Number.isInteger(from) && from !== idx) {
+                const cols = window.layoutBuilderState.columns;
+                const item = cols.splice(from, 1)[0];
+                cols.splice(idx, 0, item);
+                window.renderLayoutBuilderPreview();
+            }
+        };
+
+        const label = document.createElement('div');
+        label.className = 'block-label';
+        label.textContent = `列 ${idx + 1}`;
+        const ratio = document.createElement('div');
+        ratio.className = 'block-ratio';
+        ratio.textContent = `${Math.round((col / total) * 100)}%`;
+        block.appendChild(label);
+        block.appendChild(ratio);
+
+        if (idx < window.layoutBuilderState.columns.length - 1) {
+            const handle = document.createElement('div');
+            handle.className = 'layout-handle';
+            handle.onpointerdown = (e) => window.startLayoutHandleDrag(e, idx);
+            block.appendChild(handle);
+        }
+
+        container.appendChild(block);
+    });
+};
+
+window.startLayoutHandleDrag = function(e, index) {
+    const cols = window.layoutBuilderState.columns;
+    if (index < 0 || index >= cols.length - 1) return;
+    const container = document.getElementById('layout-builder-preview');
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const startX = e.clientX;
+    const totalPair = cols[index] + cols[index + 1];
+    const startLeft = cols[index];
+    const sumAll = cols.reduce((a, b) => a + b, 0) || 1;
+
+    const onMove = (ev) => {
+        const deltaPx = ev.clientX - startX;
+        const deltaValue = (deltaPx / rect.width) * sumAll;
+        let left = Math.max(BUILDER_MIN_COLUMN, Math.min(totalPair - BUILDER_MIN_COLUMN, startLeft + deltaValue));
+        let right = totalPair - left;
+        if (right < BUILDER_MIN_COLUMN) { right = BUILDER_MIN_COLUMN; left = totalPair - right; }
+        cols[index] = left;
+        cols[index + 1] = right;
+        window.renderLayoutBuilderPreview();
+    };
+
+    const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+};
+
+window.saveLayoutFromBuilder = function() {
+    const nameInput = document.getElementById('layout-builder-name');
+    const name = (nameInput?.value || '').trim() || '新規レイアウト';
+    const cols = window.layoutBuilderState.columns.filter(v => v > 0);
+    if (!cols.length) { alert('列が設定されていません'); return; }
+    const template = { name, columns: cols };
+    if (Number.isInteger(window.layoutBuilderState.editIndex) && window.layoutBuilderState.editIndex >= 0) {
+        state.layoutTemplates[window.layoutBuilderState.editIndex] = template;
+        state.activeLayoutTemplate = window.layoutBuilderState.editIndex;
+    } else {
+        state.layoutTemplates.push(template);
+        state.activeLayoutTemplate = state.layoutTemplates.length - 1;
+    }
+    window.persistLayoutTemplates();
+    window.closeLayoutBuilder();
+    window.renderLayoutTemplateSettings();
 };
 
 window.parseLayoutTemplatesFromInput = function(raw) {
-    if (!raw) return window.DEFAULT_LAYOUT_SETTINGS.templates;
+    if (!raw) return window.cloneLayoutTemplates(window.DEFAULT_LAYOUT_SETTINGS.templates);
     const lines = raw.split(/\n+/).map(l => l.trim()).filter(Boolean);
     const templates = [];
     lines.forEach(line => {
@@ -844,7 +1115,7 @@ window.parseLayoutTemplatesFromInput = function(raw) {
         const cols = (columnsPart || '').split(',').map(v => parseFloat(v.trim())).filter(v => !Number.isNaN(v) && v > 0);
         if (cols.length) templates.push({ name, columns: cols });
     });
-    return templates.length ? templates : window.DEFAULT_LAYOUT_SETTINGS.templates;
+    return templates.length ? templates : window.cloneLayoutTemplates(window.DEFAULT_LAYOUT_SETTINGS.templates);
 };
 
 window.persistLayoutTemplates = function() {
@@ -912,6 +1183,7 @@ window.saveSettings = function() {
     state.layoutTemplates = window.parseLayoutTemplatesFromInput(document.getElementById('layout-template-lines').value);
     state.activeLayoutTemplate = Math.min(parseInt(document.getElementById('layout-template-active').value || '0', 10) || 0, state.layoutTemplates.length - 1);
     window.persistLayoutTemplates();
+    window.renderLayoutTemplateSettings();
     window.refreshTemplateSources();
     window.closeSettings();
 };
@@ -920,7 +1192,7 @@ window.resetSettings = function() {
     if(confirm("初期化しますか？")) {
         state.keymap = JSON.parse(JSON.stringify(window.DEFAULT_KEYMAP));
         state.settings = { ...window.DEFAULT_SETTINGS };
-        state.layoutTemplates = window.DEFAULT_LAYOUT_SETTINGS.templates;
+        state.layoutTemplates = window.cloneLayoutTemplates(window.DEFAULT_LAYOUT_SETTINGS.templates);
         state.activeLayoutTemplate = window.DEFAULT_LAYOUT_SETTINGS.activeIndex;
         window.renderTemplateSettingsForm();
         window.renderKeybindList();

@@ -54,7 +54,8 @@ window.initAppData = function () {
     const savedSettings = window.readJson(window.CONFIG.SETTINGS_KEY, window.DEFAULT_SETTINGS);
     state.settings = { ...window.DEFAULT_SETTINGS, ...savedSettings };
     const savedLayout = window.readJson(window.CONFIG.LAYOUT_TEMPLATES_KEY, window.DEFAULT_LAYOUT_SETTINGS);
-    state.layoutTemplates = Array.isArray(savedLayout.templates) && savedLayout.templates.length ? savedLayout.templates : window.DEFAULT_LAYOUT_SETTINGS.templates;
+    const loadedTemplates = Array.isArray(savedLayout.templates) && savedLayout.templates.length ? savedLayout.templates : window.DEFAULT_LAYOUT_SETTINGS.templates;
+    state.layoutTemplates = window.cloneLayoutTemplates(loadedTemplates);
     state.activeLayoutTemplate = Number.isInteger(savedLayout.activeIndex) ? savedLayout.activeIndex : window.DEFAULT_LAYOUT_SETTINGS.activeIndex;
     state.isSidebarCollapsed = localStorage.getItem(window.CONFIG.SIDEBAR_KEY) === '1';
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
@@ -78,6 +79,7 @@ window.initAppData = function () {
     window.renderPanes();
     window.renderTabBar();
     window.applySidebarState();
+    window.updateLayoutButtonLabel();
 
     // 5. 履歴・イベント設定・その他
     window.persistTabs();
@@ -170,6 +172,10 @@ function setupEventListeners() {
         const r = e.target.getBoundingClientRect();
         m.style.top = (r.bottom+5)+'px'; m.style.left = r.left+'px'; m.style.display = 'block';
     };
+    document.getElementById('btn-layout-menu').onclick = (e) => {
+        e.stopPropagation();
+        window.showLayoutQuickMenu(e.target);
+    };
     document.querySelectorAll('#format-menu button').forEach(btn => {
         btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.applyFormatting(btn.dataset.action); };
     });
@@ -193,6 +199,7 @@ function setupEventListeners() {
         if(e.target === els.phraseOverlay) window.closePhraseOverlay();
         document.getElementById('context-menu').style.display = 'none';
         document.getElementById('template-menu').style.display = 'none';
+        window.hideLayoutMenu();
         if (!e.target.closest('#format-menu')) window.hideFormatMenu();
     };
     document.onkeydown = window.handleGlobalKeys;
@@ -201,6 +208,20 @@ function setupEventListeners() {
 
     document.getElementById('btn-save-settings').onclick = window.saveSettings;
     document.getElementById('btn-reset-settings').onclick = window.resetSettings;
+
+    const layoutSelect = document.getElementById('layout-template-active');
+    if (layoutSelect) layoutSelect.onchange = (e) => window.setActiveLayoutTemplate(parseInt(e.target.value, 10) || 0, { persist: true });
+
+    const builderOverlay = document.getElementById('layout-builder-overlay');
+    if (builderOverlay) {
+        document.getElementById('btn-open-layout-builder').onclick = window.openLayoutBuilder;
+        document.getElementById('btn-close-layout-builder').onclick = window.closeLayoutBuilder;
+        document.getElementById('btn-cancel-layout-builder').onclick = window.closeLayoutBuilder;
+        document.getElementById('btn-add-column').onclick = window.addLayoutBuilderColumn;
+        document.getElementById('btn-reset-columns').onclick = window.resetLayoutBuilderColumns;
+        document.getElementById('btn-save-layout-template').onclick = window.saveLayoutFromBuilder;
+        builderOverlay.onclick = (e) => { if (e.target === builderOverlay) window.closeLayoutBuilder(); };
+    }
 }
 
 window.persistTabs = function() {

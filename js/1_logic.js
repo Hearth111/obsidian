@@ -102,7 +102,7 @@ window.state = {
     pendingSearchUpdates: new Set(),
 
     // Layout Template
-    layoutTemplates: window.DEFAULT_LAYOUT_SETTINGS.templates,
+    layoutTemplates: window.DEFAULT_LAYOUT_SETTINGS.templates.map(t => ({ name: t.name, columns: [...t.columns] })),
     activeLayoutTemplate: window.DEFAULT_LAYOUT_SETTINGS.activeIndex,
 
     // View Modes & Layout
