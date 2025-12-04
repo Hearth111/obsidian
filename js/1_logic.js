@@ -102,6 +102,7 @@ window.state = {
     panes: [], // { id, title, type: 'editor'|'preview'|'canvas' }
     paneSizes: [],
     activePaneIndex: 0,
+    headingCollapse: {},
 
     // Canvas State (Shared or active)
     canvasData: { nodes: [], edges: [], x: 0, y: 0, zoom: 1 },
@@ -328,18 +329,31 @@ window.formatDailyNotePath = function(date = new Date()) {
         .replaceAll('{DD}', dd);
 };
 
-window.decoratePreview = function(container) {
+window.decoratePreview = function(container, noteTitle) {
     if (!container) return;
+    const savedState = noteTitle ? (state.headingCollapse[noteTitle] || {}) : {};
+
     const headings = Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6'));
     headings.forEach((heading) => {
         if (!heading.isConnected) return;
         const level = parseInt(heading.tagName.substring(1), 10);
         const wrapper = document.createElement('details');
         wrapper.className = `collapsible-heading level-${level}`;
-        wrapper.open = true;
 
         const summary = document.createElement('summary');
         summary.innerHTML = heading.innerHTML;
+        const key = `${level}:${summary.textContent.trim()}`;
+        const isOpen = savedState.hasOwnProperty(key) ? savedState[key] : true;
+        wrapper.open = isOpen;
+
+        if (noteTitle) {
+            if (!state.headingCollapse[noteTitle]) state.headingCollapse[noteTitle] = {};
+            state.headingCollapse[noteTitle][key] = wrapper.open;
+            wrapper.addEventListener('toggle', () => {
+                state.headingCollapse[noteTitle][key] = wrapper.open;
+            });
+        }
+
         wrapper.appendChild(summary);
 
         let cursor = heading.nextSibling;
