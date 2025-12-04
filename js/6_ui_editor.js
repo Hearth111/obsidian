@@ -65,14 +65,25 @@ window.insertTable = function() {
 
 window.handleEditorKeydown = function(e) {
     if (e.key === 'Enter') {
-        const sel = els.editor.selectionStart;
-        const text = els.editor.value;
+        const target = e.target;
+        if (!target || !target.classList.contains('pane-editor')) return;
+        const sel = target.selectionStart;
+        const text = target.value;
         const lineStart = text.lastIndexOf('\n', sel - 1) + 1;
         const line = text.substring(lineStart, sel);
         const match = line.match(/^(\s*-\s\[[ x]\]\s)/);
         if (match) {
             e.preventDefault();
-            document.execCommand('insertText', false, "\n" + match[1].replace('[x]', '[ ]'));
+            const insertText = "\n" + match[1].replace('[x]', '[ ]');
+            const start = target.selectionStart;
+            const end = target.selectionEnd;
+            if (typeof target.setRangeText === 'function') {
+                target.setRangeText(insertText, start, end, 'end');
+            } else {
+                target.value = text.slice(0, start) + insertText + text.slice(end);
+                target.selectionStart = target.selectionEnd = start + insertText.length;
+            }
+            target.dispatchEvent(new Event('input', { bubbles: true }));
         }
     }
 };

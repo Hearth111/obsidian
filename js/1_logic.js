@@ -95,9 +95,10 @@ window.state = {
     isCanvasMode: false,
     isModified: false,
     isSidebarCollapsed: false,
-    
+
     // Multi-Pane System
     panes: [], // { id, title, type: 'editor'|'preview'|'canvas' }
+    paneSizes: [],
     activePaneIndex: 0,
 
     // Canvas State (Shared or active)
@@ -123,7 +124,7 @@ window.CORE_COMMANDS = [
     { id: 'new-note', name: '新規ノート作成', handler: () => window.createNewNote() },
     { id: 'new-folder', name: '新規フォルダ作成', handler: () => window.createNewFolder() },
     { id: 'new-canvas', name: '新規キャンバス作成', handler: () => window.createNewCanvas() },
-    { id: 'split-pane', name: '画面を分割', handler: () => window.splitPane() },
+    { id: 'split-pane', name: '2画面表示 (編集+プレビュー)', handler: () => window.toggleDualView() },
     { id: 'toggle-preview', name: 'プレビュー切替 (アクティブな画面)', handler: () => window.togglePreviewMode() },
     { id: 'open-dashboard', name: '全タスクを表示', handler: () => window.toggleDashboard() },
     { id: 'insert-table', name: '表を挿入', handler: () => window.insertTable() },

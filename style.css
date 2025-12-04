@@ -106,17 +106,37 @@ details[open] > summary .folder-icon { transform: rotate(90deg); }
 .tab-close:hover { color: #fff; }
 
 /* --- Workspace Grid System (Multi-Pane) --- */
-#workspace-grid { 
-    flex: 1; display: grid; gap: 2px; background: var(--border-color); 
-    overflow: hidden; 
+#workspace-grid {
+    flex: 1;
+    display: flex;
+    gap: 2px;
+    background: var(--border-color);
+    overflow: hidden;
+    align-items: stretch;
 }
-/* Grid Configurations */
-.grid-1 { grid-template-columns: 1fr; }
-.grid-2 { grid-template-columns: 1fr 1fr; }
-.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
-.grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-.grid-5 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
-.grid-6 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.pane-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 180px;
+    min-height: 0;
+}
+.pane-resizer {
+    width: 6px;
+    cursor: col-resize;
+    background: rgba(255,255,255,0.04);
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    flex: 0 0 6px;
+    transition: background 0.15s ease;
+}
+.pane-resizer:hover {
+    background: rgba(255,255,255,0.12);
+}
+.workspace-drop-target {
+    outline: 2px dashed var(--accent-color);
+    outline-offset: -4px;
+}
 
 /* Pane Styles */
 .pane { 

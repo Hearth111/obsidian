@@ -4,6 +4,54 @@
 
 // --- Pane Management ---
 
+window.ensurePaneSizes = function() {
+    if (!Array.isArray(state.paneSizes)) state.paneSizes = [];
+    const needsReset = state.paneSizes.length !== state.panes.length || state.paneSizes.some(v => !v || v <= 0);
+    if (needsReset) {
+        state.paneSizes = Array(state.panes.length).fill(1);
+    }
+};
+
+window.applyPaneSizes = function() {
+    document.querySelectorAll('#workspace-grid .pane-wrapper').forEach((wrap, idx) => {
+        wrap.style.flexGrow = state.paneSizes[idx] || 1;
+        wrap.style.flexBasis = '0';
+    });
+};
+
+window.startResizePane = function(e, leftIndex, rightIndex) {
+    e.preventDefault();
+    const grid = document.getElementById('workspace-grid');
+    if (!grid) return;
+
+    const startX = e.clientX;
+    const startSizes = [...state.paneSizes];
+    const gridRect = grid.getBoundingClientRect();
+    const totalFlex = startSizes.reduce((a, b) => a + b, 0) || 1;
+    const pxPerFlex = gridRect.width / totalFlex;
+    const minFlex = 0.5;
+
+    const onMove = (ev) => {
+        const deltaFlex = (ev.clientX - startX) / pxPerFlex;
+        const pairTotal = startSizes[leftIndex] + startSizes[rightIndex];
+        let newLeft = Math.max(minFlex, startSizes[leftIndex] + deltaFlex);
+        newLeft = Math.min(pairTotal - minFlex, newLeft);
+        const newRight = pairTotal - newLeft;
+
+        state.paneSizes[leftIndex] = newLeft;
+        state.paneSizes[rightIndex] = newRight;
+        window.applyPaneSizes();
+    };
+
+    const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+};
+
 window.renderPanes = function() {
     const grid = document.getElementById('workspace-grid');
     if (!grid) return;
@@ -12,18 +60,18 @@ window.renderPanes = function() {
         grid.className = 'grid-1';
         grid.innerHTML = `<div id="dashboard-container" class="pane" style="overflow:auto; width:100%; height:100%;"></div>`;
         const container = document.getElementById('dashboard-container');
-        // Hack: renderTaskDashboard expects #preview to exist in older logic, 
-        // but now we render directly into dashboard container or overwrite preview's innerHTML logic.
-        // We will adapt renderTaskDashboard logic in 7_ui_nav.js to accept target or use active pane.
-        // For now, let's just use a special pane structure.
         return window.renderTaskDashboard(container);
     }
 
-    // Set Grid Class (grid-1 to grid-6)
+    window.ensurePaneSizes();
     grid.className = `grid-${state.panes.length}`;
     grid.innerHTML = '';
 
     state.panes.forEach((pane, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'pane-wrapper';
+        wrapper.style.flexGrow = state.paneSizes[index] || 1;
+
         const paneEl = document.createElement('div');
         paneEl.className = 'pane' + (index === state.activePaneIndex ? ' active-pane' : '');
         paneEl.id = `pane-${index}`;
@@ -33,7 +81,7 @@ window.renderPanes = function() {
         // Header
         const header = document.createElement('div');
         header.className = 'pane-header';
-        
+
         const titleSpan = document.createElement('span');
         titleSpan.className = 'pane-title';
         titleSpan.textContent = pane.title;
@@ -42,13 +90,13 @@ window.renderPanes = function() {
 
         const controls = document.createElement('div');
         controls.className = 'pane-controls';
-        
+
         // Mode toggle button
         if (pane.type !== 'canvas') {
             const modeBtn = document.createElement('button');
-            modeBtn.className = 'pane-btn';
+            modeBtn.className = 'pane-btn' + (pane.type === 'preview' ? ' btn-active' : '');
             modeBtn.innerHTML = pane.type === 'editor' ? '👁' : '✎';
-            modeBtn.title = '表示モード切替';
+            modeBtn.title = pane.type === 'editor' ? 'プレビューに切替' : '編集に切替';
             modeBtn.onclick = (e) => { e.stopPropagation(); window.togglePaneMode(index); };
             controls.appendChild(modeBtn);
         }
@@ -69,7 +117,7 @@ window.renderPanes = function() {
         // Content
         const content = document.createElement('div');
         content.className = 'pane-content';
-        
+
         const noteContent = state.notes[pane.title] || "";
 
         if (pane.type === 'editor') {
@@ -87,12 +135,8 @@ window.renderPanes = function() {
             // Setup canvas container
             const canvasArea = document.createElement('div');
             canvasArea.id = 'canvas-area'; // ID must be active for canvas logic (limitation of current 3_canvas.js)
-            // Note: If multiple canvases are open, only the ACTIVE one gets the ID 'canvas-area' ideally.
-            // But for CSS styling we use class.
             canvasArea.className = 'pane-canvas';
             if (index === state.activePaneIndex) {
-                // This pane owns the global canvas controller
-                // We recreate the structure required by 3_canvas.js
                 canvasArea.innerHTML = `
                     <div id="canvas-layer">
                         <svg id="canvas-svg"></svg>
@@ -109,25 +153,34 @@ window.renderPanes = function() {
                         <span id="canvas-info" style="color:#666; font-size:0.8em; align-self:center; margin-left:5px;"></span>
                     </div>
                 `;
-                // Defer canvas render slightly
                 setTimeout(() => {
-                    // Update global state references to point to this pane's elements
-                    window.renderCanvas(); 
+                    window.renderCanvas();
                 }, 0);
             } else {
-                // Inactive canvas: just a placeholder or static render
                 canvasArea.innerHTML = `<div style="padding:20px; color:#666;">(Canvas: Click to activate)</div>`;
             }
             content.appendChild(canvasArea);
         }
 
         paneEl.appendChild(content);
-        grid.appendChild(paneEl);
+        wrapper.appendChild(paneEl);
+        grid.appendChild(wrapper);
+
+        if (index < state.panes.length - 1) {
+            const resizer = document.createElement('div');
+            resizer.className = 'pane-resizer';
+            resizer.onpointerdown = (e) => window.startResizePane(e, index, index + 1);
+            grid.appendChild(resizer);
+        }
     });
+
+    window.applyPaneSizes();
+    window.updateModeToggleButton();
+    window.updateDualViewButton();
 };
 
 window.setActivePane = function(index) {
-    if (index === state.activePaneIndex) return;
+    if (index < 0 || index >= state.panes.length) return;
     state.activePaneIndex = index;
     const pane = state.panes[index];
     state.currentTitle = pane.title;
@@ -148,27 +201,50 @@ window.setActivePane = function(index) {
     window.renderTabBar();
 };
 
-window.splitPane = function() {
+window.toggleDualView = function() {
+    const active = state.panes[state.activePaneIndex];
+    if (!active || active.type === 'canvas') return;
+
+    let editorIndex = state.panes.findIndex(p => p.title === active.title && p.type === 'editor');
+    if (editorIndex === -1) {
+        active.type = 'editor';
+        editorIndex = state.activePaneIndex;
+    }
+
+    const existingPreviewIndex = state.panes.findIndex((p, idx) => idx !== editorIndex && p.title === active.title && p.type === 'preview');
+    if (existingPreviewIndex !== -1) {
+        state.panes.splice(existingPreviewIndex, 1);
+        state.paneSizes.splice(existingPreviewIndex, 1);
+        state.panes.forEach((p, i) => p.id = i);
+        state.activePaneIndex = Math.min(editorIndex, state.panes.length - 1);
+        state.currentTitle = state.panes[state.activePaneIndex].title;
+        window.renderPanes();
+        return;
+    }
+
     if (state.panes.length >= 6) {
         alert("最大6画面までです");
         return;
     }
-    // Clone current pane info
-    const current = state.panes[state.activePaneIndex];
-    const newPane = { 
-        id: state.panes.length, 
-        title: current.title, 
-        type: current.type === 'editor' ? 'preview' : 'editor' // Alternate default
-    };
-    if (current.type === 'canvas') newPane.type = 'canvas';
-    
-    state.panes.push(newPane);
-    window.setActivePane(state.panes.length - 1);
+
+    const previewPane = { id: state.panes.length, title: active.title, type: 'preview' };
+    const insertIndex = editorIndex + 1;
+    state.panes.splice(insertIndex, 0, previewPane);
+    const baseSize = state.paneSizes[editorIndex] || 1;
+    state.paneSizes.splice(insertIndex, 0, baseSize);
+    state.panes.forEach((p, i) => p.id = i);
+    state.activePaneIndex = editorIndex;
+    state.currentTitle = active.title;
+    window.renderPanes();
 };
+
+window.splitPane = function() { window.toggleDualView(); };
 
 window.closePane = function(index) {
     if (state.panes.length <= 1) return;
     state.panes.splice(index, 1);
+    state.paneSizes.splice(index, 1);
+    if (!state.paneSizes.length) state.paneSizes = [1];
     // Reassign IDs/Index
     state.panes.forEach((p, i) => p.id = i);
     state.activePaneIndex = Math.min(state.activePaneIndex, state.panes.length - 1);
@@ -180,6 +256,21 @@ window.loadNoteIntoPane = function(index, title) {
     window.loadNote(title);
 };
 
+window.openNoteInNewPane = function(path) {
+    if (!state.notes[path]) return;
+    if (state.panes.length >= 6) {
+        alert("最大6画面までです");
+        return;
+    }
+    const content = state.notes[path];
+    const type = content.startsWith(window.CANVAS_MARKER) ? 'canvas' : 'editor';
+    const newPane = { id: state.panes.length, title: path, type };
+    state.panes.push(newPane);
+    state.paneSizes.push(1);
+    state.activePaneIndex = state.panes.length - 1;
+    window.loadNote(path);
+};
+
 window.togglePaneMode = function(index) {
     const pane = state.panes[index];
     if (pane.type === 'canvas') return; // Canvas has no toggle
@@ -189,6 +280,43 @@ window.togglePaneMode = function(index) {
 
 window.togglePreviewMode = function() {
     window.togglePaneMode(state.activePaneIndex);
+};
+
+window.updateModeToggleButton = function() {
+    const btn = document.getElementById('btn-mode');
+    const pane = state.panes[state.activePaneIndex];
+    if (!btn) return;
+
+    if (!pane || pane.type === 'canvas') {
+        btn.textContent = '👁 プレビュー';
+        btn.classList.remove('btn-active');
+        btn.disabled = !pane || pane.type === 'canvas';
+        return;
+    }
+
+    btn.disabled = false;
+    if (pane.type === 'editor') {
+        btn.textContent = '👁 プレビュー';
+        btn.classList.remove('btn-active');
+    } else {
+        btn.textContent = '✎ 編集';
+        btn.classList.add('btn-active');
+    }
+};
+
+window.updateDualViewButton = function() {
+    const btn = document.getElementById('btn-split-add');
+    const active = state.panes[state.activePaneIndex];
+    if (!btn) return;
+
+    btn.disabled = !!(active && active.type === 'canvas');
+    if (btn.disabled) {
+        btn.classList.remove('btn-active');
+        return;
+    }
+
+    const hasPreview = !!(active && state.panes.some((p, idx) => idx !== state.activePaneIndex && p.title === active.title && p.type === 'preview'));
+    btn.classList.toggle('btn-active', hasPreview);
 };
 
 // --- Shared Menu Helper ---
