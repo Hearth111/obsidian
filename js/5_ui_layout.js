@@ -59,7 +59,7 @@ window.hideLayoutOverlay = function() {
 };
 
 window.renderLayoutOverlay = function(template, hoverIndex = -1) {
-    if (!template || !template.columns || !template.columns.length) return;
+    if (!template) return;
     let overlay = document.getElementById('layout-template-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
@@ -77,33 +77,86 @@ window.renderLayoutOverlay = function(template, hoverIndex = -1) {
     zones.forEach((zone, idx) => {
         const div = document.createElement('div');
         div.className = 'layout-zone' + (idx === hoverIndex ? ' active' : '');
-        div.style.left = `${DESKTOP_PADDING}px`;
+        div.style.left = `${zone.x}px`;
         div.style.width = `${zone.width}px`;
-        div.style.top = `${zone.start}px`;
+        div.style.top = `${zone.y}px`;
         div.style.height = `${zone.height}px`;
         div.textContent = `${template.name || 'テンプレート'} (${Math.round(zone.ratio * 100)}%)`;
         overlay.appendChild(div);
     });
 };
 
+window.cloneLayoutNode = function(node) {
+    if (!node) return null;
+    if (node.type === 'split') {
+        return {
+            type: 'split',
+            direction: node.direction === 'horizontal' ? 'horizontal' : 'vertical',
+            sizes: Array.isArray(node.sizes) ? [...node.sizes] : [],
+            children: Array.isArray(node.children) ? node.children.map(window.cloneLayoutNode) : []
+        };
+    }
+    return { type: 'leaf', size: Math.max(1, node.size || 100) };
+};
+
+window.columnsToLayout = function(columns = []) {
+    const safe = Array.isArray(columns) && columns.length ? columns : [100];
+    if (safe.length === 1) return { type: 'leaf', size: Math.max(1, safe[0]) };
+    return {
+        type: 'split',
+        direction: 'vertical',
+        sizes: safe.map(v => Math.max(1, v)),
+        children: safe.map(v => ({ type: 'leaf', size: Math.max(1, v) }))
+    };
+};
+
+window.normalizeTemplateLayout = function(template) {
+    if (!template) return { layout: { type: 'leaf', size: 100 } };
+    const baseLayout = template.layout ? window.cloneLayoutNode(template.layout) : window.columnsToLayout(template.columns);
+    return { ...template, layout: baseLayout };
+};
+
 window.computeTemplateZones = function(template, boundsWidth, boundsHeight) {
-    const total = template.columns.reduce((sum, v) => sum + Math.max(0, v), 0) || 1;
+    const normalized = window.normalizeTemplateLayout(template);
+    const root = normalized.layout || { type: 'leaf', size: 100 };
     const availableHeight = Math.max(MIN_WINDOW_HEIGHT, Math.min(boundsHeight - DESKTOP_PADDING * 2, boundsHeight));
     const availableWidth = Math.max(MIN_WINDOW_WIDTH, Math.min(boundsWidth - DESKTOP_PADDING * 2, boundsWidth));
-    let cursor = DESKTOP_PADDING;
-    const zones = template.columns.map((col, idx) => {
-        const height = idx === template.columns.length - 1
-            ? (boundsHeight - DESKTOP_PADDING) - cursor
-            : Math.max(MIN_WINDOW_HEIGHT, Math.round(availableHeight * (col / total)));
-        const zone = {
-            start: cursor,
-            height: Math.min(height, boundsHeight - cursor - DESKTOP_PADDING),
-            width: availableWidth,
-            ratio: (col / total)
-        };
-        cursor += height;
-        return zone;
-    });
+    const origin = { x: DESKTOP_PADDING, y: DESKTOP_PADDING, width: availableWidth, height: availableHeight };
+    const totalArea = origin.width * origin.height || 1;
+    const zones = [];
+
+    const walk = (node, rect) => {
+        if (!node) return;
+        if (node.type === 'split' && Array.isArray(node.children) && node.children.length) {
+            const sizes = node.sizes && node.sizes.length === node.children.length
+                ? node.sizes
+                : Array(node.children.length).fill(1);
+            const sum = sizes.reduce((a, b) => a + Math.max(1, b), 0) || 1;
+            let offset = 0;
+            node.children.forEach((child, idx) => {
+                const portion = Math.max(1, sizes[idx]) / sum;
+                if (node.direction === 'horizontal') {
+                    const w = rect.width * portion;
+                    walk(child, { x: rect.x + offset, y: rect.y, width: w, height: rect.height });
+                    offset += w;
+                } else {
+                    const h = rect.height * portion;
+                    walk(child, { x: rect.x, y: rect.y + offset, width: rect.width, height: h });
+                    offset += h;
+                }
+            });
+            return;
+        }
+        zones.push({
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+            ratio: (rect.width * rect.height) / totalArea
+        });
+    };
+
+    walk(root, origin);
     return zones;
 };
 
@@ -354,13 +407,14 @@ window.startWindowDrag = function(e, index) {
         if (useTemplate) {
             const zones = window.computeTemplateZones(template, bounds.width, bounds.height);
             const localY = Math.max(0, Math.min(ev.clientY - bounds.y, bounds.height));
-            const hovered = zones.findIndex(z => localY >= z.start && localY <= z.start + z.height);
+            const localX = Math.max(0, Math.min(ev.clientX - bounds.x, bounds.width));
+            const hovered = zones.findIndex(z => localX >= z.x && localX <= z.x + z.width && localY >= z.y && localY <= z.y + z.height);
             const targetIndex = hovered !== -1 ? hovered : 0;
             const zone = zones[targetIndex];
-            layout.width = Math.max(MIN_WINDOW_WIDTH, bounds.width - DESKTOP_PADDING * 2);
-            layout.x = DESKTOP_PADDING;
+            layout.width = Math.max(MIN_WINDOW_WIDTH, zone.width);
+            layout.x = Math.max(0, Math.min(zone.x, bounds.width - layout.width - DESKTOP_PADDING));
             layout.height = Math.max(MIN_WINDOW_HEIGHT, zone.height);
-            layout.y = Math.max(0, Math.min(zone.start, bounds.height - layout.height - DESKTOP_PADDING));
+            layout.y = Math.max(0, Math.min(zone.y, bounds.height - layout.height - DESKTOP_PADDING));
             window.renderLayoutOverlay(template, targetIndex);
         } else {
             window.hideLayoutOverlay();
@@ -836,14 +890,26 @@ window.renderLayoutTemplateSettings = function() {
 window.composeLayoutTemplateText = function(list) {
     return list.map((t) => {
         const label = t.name || 'テンプレート';
-        const columns = Array.isArray(t.columns) ? t.columns.join(',') : '';
-        return `${label}: ${columns}`;
+        const ratios = window.describeLayoutRatios(t).join(',');
+        return `${label}: ${ratios}`;
     }).join('\n');
+};
+
+window.describeLayoutRatios = function(template) {
+    const zones = window.computeTemplateZones(template, 100, 100);
+    return zones.map(z => `${Math.round(z.ratio * 100)}%`);
 };
 
 window.cloneLayoutTemplates = function(list) {
     if (!Array.isArray(list)) return [];
-    return list.map(t => ({ name: t.name, columns: Array.isArray(t.columns) ? [...t.columns] : [] }));
+    return list.map(t => {
+        const normalized = window.normalizeTemplateLayout(t);
+        return {
+            name: normalized.name,
+            columns: Array.isArray(normalized.columns) ? [...normalized.columns] : (Array.isArray(t.columns) ? [...t.columns] : []),
+            layout: window.cloneLayoutNode(normalized.layout)
+        };
+    });
 };
 
 window.populateLayoutTemplateSelect = function(select) {
@@ -881,10 +947,10 @@ window.renderLayoutTemplateCards = function() {
 
         const badges = document.createElement('div');
         badges.className = 'layout-card-badges';
-        (t.columns || []).forEach((col, cIdx) => {
+        window.describeLayoutRatios(t).forEach((ratio, cIdx) => {
             const chip = document.createElement('span');
             chip.className = 'layout-chip';
-            chip.textContent = `列${cIdx + 1}: ${Math.round(col)}%`;
+            chip.textContent = `領域${cIdx + 1}: ${ratio}`;
             badges.appendChild(chip);
         });
         card.appendChild(badges);
@@ -954,7 +1020,7 @@ window.showLayoutQuickMenu = function(anchor) {
     state.layoutTemplates.forEach((tmpl, idx) => {
         const item = document.createElement('div');
         item.className = 'layout-menu-item';
-        const meta = Array.isArray(tmpl.columns) ? tmpl.columns.map(v => `${Math.round(v)}%`).join(' / ') : '';
+        const meta = window.describeLayoutRatios(tmpl).join(' / ');
         item.innerHTML = `<span>${tmpl.name || `テンプレート ${idx + 1}`}</span><span class="layout-menu-meta">${meta}</span>`;
         item.onclick = (e) => {
             e.stopPropagation();
@@ -984,12 +1050,14 @@ window.hideLayoutMenu = function() {
 
 // --- Layout Builder ---
 const BUILDER_MIN_COLUMN = 8;
-window.layoutBuilderState = { columns: [], name: '', editIndex: -1 };
+window.layoutBuilderState = { layout: { type: 'leaf', size: 100 }, name: '', editIndex: -1 };
+
+window.createDefaultLayout = function() { return { type: 'leaf', size: 100 }; };
 
 window.openLayoutBuilder = function(index = -1) {
-    const target = state.layoutTemplates[index] || { name: '新規レイアウト', columns: [50, 50] };
+    const target = window.normalizeTemplateLayout(state.layoutTemplates[index] || { name: '新規レイアウト', columns: [100] });
     window.layoutBuilderState = {
-        columns: Array.isArray(target.columns) && target.columns.length ? [...target.columns] : [50, 50],
+        layout: window.cloneLayoutNode(target.layout || window.createDefaultLayout()),
         name: target.name || '',
         editIndex: index
     };
@@ -1003,56 +1071,66 @@ window.closeLayoutBuilder = function() {
 };
 
 window.resetLayoutBuilderColumns = function() {
-    window.layoutBuilderState.columns = [50, 50];
+    window.layoutBuilderState.layout = window.createDefaultLayout();
     window.renderLayoutBuilderPreview();
 };
 
-window.addLayoutBuilderColumn = function() {
-    const cols = window.layoutBuilderState.columns;
-    const avg = Math.max(BUILDER_MIN_COLUMN, Math.round(cols.reduce((a, b) => a + b, 0) / (cols.length + 1)));
-    cols.push(avg);
+window.ensureSplitNode = function(node, direction) {
+    if (node.type === 'split') return node;
+    node.type = 'split';
+    node.direction = direction;
+    node.children = [window.createDefaultLayout(), window.createDefaultLayout()];
+    node.sizes = [50, 50];
+    return node;
+};
+
+window.splitLayoutBuilderBlock = function(path, direction) {
+    const segments = Array.isArray(path) ? [...path] : [];
+    const target = window.getLayoutNodeByPath(window.layoutBuilderState.layout, segments);
+    if (!target || target.type !== 'leaf') return;
+    target.type = 'split';
+    target.direction = direction === 'horizontal' ? 'horizontal' : 'vertical';
+    target.children = [window.createDefaultLayout(), window.createDefaultLayout()];
+    target.sizes = [50, 50];
     window.renderLayoutBuilderPreview();
 };
 
-window.splitLayoutBuilderColumn = function(index) {
-    const cols = window.layoutBuilderState.columns;
-    if (!Array.isArray(cols) || index < 0 || index >= cols.length) return;
-    const original = cols[index];
-    const first = Math.max(BUILDER_MIN_COLUMN, Math.round(original / 2));
-    const second = Math.max(BUILDER_MIN_COLUMN, original - first);
-    cols.splice(index, 1, first, second);
-    window.renderLayoutBuilderPreview();
-};
-
-window.equalizeLayoutBuilder = function(direction = 'horizontal') {
-    const cols = window.layoutBuilderState.columns;
-    if (!Array.isArray(cols) || !cols.length) {
-        window.layoutBuilderState.columns = [100];
-        window.renderLayoutBuilderPreview();
+window.addLayoutBuilderSplit = function(direction = 'vertical') {
+    const root = window.layoutBuilderState.layout;
+    if (!root) return;
+    if (root.type === 'leaf') {
+        window.splitLayoutBuilderBlock([], direction);
         return;
     }
-
-    const total = cols.reduce((a, b) => a + b, 0) || 1;
-    const count = cols.length;
-    const base = Math.max(BUILDER_MIN_COLUMN, Math.round(total / count));
-    const normalized = Array(count).fill(base);
-
-    if (direction === 'horizontal') {
-        const targetTotal = Math.max(100, BUILDER_MIN_COLUMN * count);
-        const per = Math.max(BUILDER_MIN_COLUMN, Math.floor(targetTotal / count));
-        normalized.fill(per);
-        let remainder = targetTotal - per * count;
-        if (remainder > 0 && count >= 2) {
-            normalized[0] = Math.max(BUILDER_MIN_COLUMN, normalized[0] + 1);
-            remainder -= 1;
-        }
-        if (remainder > 0) {
-            normalized[normalized.length - 1] = Math.max(BUILDER_MIN_COLUMN, normalized[normalized.length - 1] + remainder);
-        }
+    if (root.type === 'split' && root.direction === direction) {
+        root.children.push(window.createDefaultLayout());
+        const base = Math.max(BUILDER_MIN_COLUMN, Math.round(100 / root.children.length));
+        root.sizes = Array(root.children.length).fill(base);
+    } else {
+        window.layoutBuilderState.layout = {
+            type: 'split',
+            direction,
+            children: [window.cloneLayoutNode(root), window.createDefaultLayout()],
+            sizes: [50, 50]
+        };
     }
-
-    window.layoutBuilderState.columns = normalized;
     window.renderLayoutBuilderPreview();
+};
+
+window.getLayoutNodeByPath = function(node, path = []) {
+    return path.reduce((acc, idx) => (acc && acc.children ? acc.children[idx] : null), node);
+};
+
+window.equalizeLayoutBuilder = function(direction = 'vertical', node = window.layoutBuilderState.layout) {
+    if (!node) return;
+    if (node.type === 'split') {
+        if (node.direction === direction && node.children.length) {
+            const per = Math.max(BUILDER_MIN_COLUMN, Math.round(100 / node.children.length));
+            node.sizes = Array(node.children.length).fill(per);
+        }
+        node.children.forEach(child => window.equalizeLayoutBuilder(direction, child));
+    }
+    if (direction === 'all') window.equalizeLayoutBuilder('horizontal', node);
 };
 
 window.renderLayoutBuilderPreview = function() {
@@ -1060,72 +1138,79 @@ window.renderLayoutBuilderPreview = function() {
     const summary = document.getElementById('layout-builder-summary');
     if (!container) return;
     container.innerHTML = '';
-    const total = window.layoutBuilderState.columns.reduce((a, b) => a + b, 0) || 1;
-    const sumText = window.layoutBuilderState.columns.map(v => `${Math.round((v / total) * 100)}%`).join(' / ');
-    if (summary) summary.textContent = `現在の比率: ${sumText}`;
 
-    window.layoutBuilderState.columns.forEach((col, idx) => {
-        const block = document.createElement('div');
-        block.className = 'layout-block';
-        block.style.flexBasis = `${(col / total) * 100}%`;
-        block.draggable = true;
-        block.dataset.index = idx;
-        block.onclick = (e) => { e.preventDefault(); window.splitLayoutBuilderColumn(idx); };
-        block.ondragstart = (e) => {
-            e.dataTransfer.setData('text/plain', idx.toString());
-            e.dataTransfer.effectAllowed = 'move';
-        };
-        block.ondragover = (e) => e.preventDefault();
-        block.ondrop = (e) => {
-            e.preventDefault();
-            const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-            if (Number.isInteger(from) && from !== idx) {
-                const cols = window.layoutBuilderState.columns;
-                const item = cols.splice(from, 1)[0];
-                cols.splice(idx, 0, item);
-                window.renderLayoutBuilderPreview();
-            }
-        };
+    const zones = window.computeTemplateZones({ layout: window.layoutBuilderState.layout }, container.clientWidth || 100, container.clientHeight || 100);
+    if (summary) {
+        const text = window.describeLayoutRatios({ layout: window.layoutBuilderState.layout }).join(' / ');
+        summary.textContent = `現在の比率: ${text}`;
+    }
 
-        const label = document.createElement('div');
-        label.className = 'block-label';
-        label.textContent = `ブロック ${idx + 1}`;
-        const ratio = document.createElement('div');
-        ratio.className = 'block-ratio';
-        ratio.textContent = `${Math.round((col / total) * 100)}%`;
-        block.appendChild(label);
-        block.appendChild(ratio);
-
-        if (idx < window.layoutBuilderState.columns.length - 1) {
-            const handle = document.createElement('div');
-            handle.className = 'layout-handle';
-            handle.onpointerdown = (e) => window.startLayoutHandleDrag(e, idx);
-            block.appendChild(handle);
+    let blockCounter = 0;
+    const renderNode = (node, path = []) => {
+        if (node.type === 'split' && node.children?.length) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'layout-split ' + (node.direction === 'horizontal' ? 'horizontal' : 'vertical');
+            const sizes = node.sizes && node.sizes.length === node.children.length ? node.sizes : Array(node.children.length).fill(1);
+            const sum = sizes.reduce((a, b) => a + Math.max(1, b), 0) || 1;
+            node.children.forEach((child, idx) => {
+                const portion = Math.max(1, sizes[idx]) / sum;
+                const childEl = renderNode(child, [...path, idx]);
+                childEl.style.flexBasis = `${portion * 100}%`;
+                wrapper.appendChild(childEl);
+                if (idx < node.children.length - 1) {
+                    const handle = document.createElement('div');
+                    handle.className = 'layout-handle ' + (node.direction === 'horizontal' ? 'vertical-handle' : 'horizontal-handle');
+                    handle.onpointerdown = (e) => window.startLayoutHandleDrag(e, path, idx, node.direction);
+                    wrapper.appendChild(handle);
+                }
+            });
+            return wrapper;
         }
 
-        container.appendChild(block);
-    });
+        const block = document.createElement('div');
+        block.className = 'layout-block';
+        const label = document.createElement('div');
+        label.className = 'block-label';
+        label.textContent = `ブロック ${++blockCounter}`;
+        const ratio = document.createElement('div');
+        ratio.className = 'block-ratio';
+        const zone = zones[blockCounter - 1];
+        ratio.textContent = zone ? `${Math.round(zone.ratio * 100)}%` : '';
+        block.appendChild(label);
+        block.appendChild(ratio);
+        block.onclick = (e) => { e.preventDefault(); window.splitLayoutBuilderBlock(path, 'vertical'); };
+        block.oncontextmenu = (e) => { e.preventDefault(); window.splitLayoutBuilderBlock(path, 'horizontal'); };
+        return block;
+    };
+
+    const tree = renderNode(window.layoutBuilderState.layout, []);
+    tree.style.flexGrow = '1';
+    container.appendChild(tree);
 };
 
-window.startLayoutHandleDrag = function(e, index) {
-    const cols = window.layoutBuilderState.columns;
-    if (index < 0 || index >= cols.length - 1) return;
+window.startLayoutHandleDrag = function(e, path, index, direction) {
+    const parent = window.getLayoutNodeByPath(window.layoutBuilderState.layout, path);
+    if (!parent || parent.type !== 'split' || index < 0 || index >= parent.children.length - 1) return;
     const container = document.getElementById('layout-builder-preview');
     if (!container) return;
     const rect = container.getBoundingClientRect();
+    const sizes = parent.sizes && parent.sizes.length === parent.children.length ? parent.sizes : Array(parent.children.length).fill(1);
+    const totalPair = sizes[index] + sizes[index + 1];
+    const startPrimary = sizes[index];
+    const sumAll = sizes.reduce((a, b) => a + b, 0) || 1;
+    const startX = e.clientX;
     const startY = e.clientY;
-    const totalPair = cols[index] + cols[index + 1];
-    const startTop = cols[index];
-    const sumAll = cols.reduce((a, b) => a + b, 0) || 1;
 
     const onMove = (ev) => {
-        const deltaPx = ev.clientY - startY;
-        const deltaValue = (deltaPx / rect.height) * sumAll;
-        let top = Math.max(BUILDER_MIN_COLUMN, Math.min(totalPair - BUILDER_MIN_COLUMN, startTop + deltaValue));
-        let bottom = totalPair - top;
-        if (bottom < BUILDER_MIN_COLUMN) { bottom = BUILDER_MIN_COLUMN; top = totalPair - bottom; }
-        cols[index] = top;
-        cols[index + 1] = bottom;
+        const deltaPx = direction === 'horizontal' ? (ev.clientX - startX) : (ev.clientY - startY);
+        const totalPx = direction === 'horizontal' ? rect.width : rect.height;
+        const deltaValue = (deltaPx / Math.max(1, totalPx)) * sumAll;
+        let first = Math.max(BUILDER_MIN_COLUMN, Math.min(totalPair - BUILDER_MIN_COLUMN, startPrimary + deltaValue));
+        let second = totalPair - first;
+        if (second < BUILDER_MIN_COLUMN) { second = BUILDER_MIN_COLUMN; first = totalPair - second; }
+        sizes[index] = first;
+        sizes[index + 1] = second;
+        parent.sizes = [...sizes];
         window.renderLayoutBuilderPreview();
     };
 
@@ -1141,9 +1226,8 @@ window.startLayoutHandleDrag = function(e, index) {
 window.saveLayoutFromBuilder = function() {
     const nameInput = document.getElementById('layout-builder-name');
     const name = (nameInput?.value || '').trim() || '新規レイアウト';
-    const cols = window.layoutBuilderState.columns.filter(v => v > 0);
-    if (!cols.length) { alert('列が設定されていません'); return; }
-    const template = { name, columns: cols };
+    const layout = window.cloneLayoutNode(window.layoutBuilderState.layout);
+    const template = { name, layout, columns: window.describeLayoutRatios({ layout }).map(v => parseInt(v, 10) || 0) };
     if (Number.isInteger(window.layoutBuilderState.editIndex) && window.layoutBuilderState.editIndex >= 0) {
         state.layoutTemplates[window.layoutBuilderState.editIndex] = template;
         state.activeLayoutTemplate = window.layoutBuilderState.editIndex;
@@ -1164,7 +1248,7 @@ window.parseLayoutTemplatesFromInput = function(raw) {
         const [namePart, columnsPart] = line.includes(':') ? line.split(/:(.+)/).slice(0, 2) : [line, line];
         const name = (namePart || 'テンプレート').trim();
         const cols = (columnsPart || '').split(',').map(v => parseFloat(v.trim())).filter(v => !Number.isNaN(v) && v > 0);
-        if (cols.length) templates.push({ name, columns: cols });
+        if (cols.length) templates.push({ name, columns: cols, layout: window.columnsToLayout(cols) });
     });
     return templates.length ? templates : window.cloneLayoutTemplates(window.DEFAULT_LAYOUT_SETTINGS.templates);
 };
