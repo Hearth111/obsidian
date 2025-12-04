@@ -160,7 +160,10 @@ window.searchNotes = async function(query) {
     const q = query.toLowerCase();
     const db = await window.initSearchIndex();
     if (!db) {
-        return Object.keys(state.notes).filter(k => k.toLowerCase().includes(q) || state.notes[k].toLowerCase().includes(q));
+        return Object.keys(state.notes).filter(k => 
+            k.toLowerCase().includes(q) || 
+            state.notes[k].toLowerCase().includes(q)
+        );
     }
 
     return new Promise((resolve) => {
@@ -216,4 +219,4 @@ window.captureClipboard = function(text) {
     if (!text) return;
     state.clipboardHistory = [text, ...state.clipboardHistory.filter(t => t !== text)].slice(0, 20);
     window.writeJson(window.CONFIG.CLIPBOARD_KEY, state.clipboardHistory);
-};
+}

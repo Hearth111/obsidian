@@ -37,7 +37,6 @@ window.writeJson = function(key, value) {
 window.showBackupStatus = function(message, duration = 3000) {
     const statusEl = document.getElementById('backup-status');
     if (!statusEl) return;
-
     statusEl.textContent = message;
     if (duration) {
         setTimeout(() => {
@@ -55,23 +54,19 @@ window.DEFAULT_KEYMAP = {
     'toggle-privacy': 'Alt+B',
     'open-switcher': 'Ctrl+K',
     'open-command': 'Ctrl+P',
-    'save-data': 'Ctrl+S' // NEW: Ctrl+SでJSON保存
+    'save-data': 'Ctrl+S'
 };
 
 window.DEFAULT_SETTINGS = {
     templateFolder: 'Templates',
     includeSubfoldersForTemplates: true,
-    templateMenuGrouping: 'path', // 'path' | 'flat'
+    templateMenuGrouping: 'path', 
     insertSpacingAroundTemplate: true
 };
 
 window.CANVAS_COLORS = [
-    'rgba(127, 109, 242, 0.1)', // Default (Purple)
-    'rgba(229, 57, 53, 0.1)',   // Red
-    'rgba(255, 179, 0, 0.1)',   // Orange
-    'rgba(67, 160, 71, 0.1)',   // Green
-    'rgba(3, 169, 244, 0.1)',   // Blue
-    'rgba(117, 117, 117, 0.1)'  // Gray
+    'rgba(127, 109, 242, 0.1)', 'rgba(229, 57, 53, 0.1)', 'rgba(255, 179, 0, 0.1)',
+    'rgba(67, 160, 71, 0.1)', 'rgba(3, 169, 244, 0.1)', 'rgba(117, 117, 117, 0.1)'
 ];
 
 // --- Global State Initialization ---
@@ -92,36 +87,24 @@ window.state = {
     searchDb: null,
     pendingSearchUpdates: new Set(),
     
-    // View Modes
+    // View Modes & Layout
     isDashboard: false,
-    isSplit: false,
-    isPreview: false,
     isPrivacy: false,
     showCompletedTasks: false,
     isCanvasMode: false,
-    isModified: false, // NEW: Track unsaved changes for prompt on close
+    isModified: false,
     isSidebarCollapsed: false,
     
-    // Canvas State
+    // Multi-Pane System
+    panes: [], // { id, title, type: 'editor'|'preview'|'canvas' }
+    activePaneIndex: 0,
+
+    // Canvas State (Shared or active)
     canvasData: { nodes: [], edges: [], x: 0, y: 0, zoom: 1 },
-    canvasMode: 'edit', // 'edit' (pointer) or 'pan' (hand)
-    anchorSelectionActive: false,
+    canvasMode: 'edit',
     
-    // Canvas Interaction Flags
-    isDraggingCanvas: false,
-    isDraggingNode: false,
-    isResizing: false,
-    isConnecting: false,
-    connectionMode: null, // 'drag' | 'click'
-
-    pendingConnectNodeId: null, // 追加: 接続待機中のソースノードID
-
-    connectStart: null, // { nodeId, anchor }
-
-    dragStart: { x: 0, y: 0 },
-    dragNodeId: null,
-    resizeStart: { w: 0, h: 0 },
-    tempLine: null,
+    // Interaction Flags
+    switcherCallback: null,
     
     // Runtime
     draggedItem: null,
@@ -139,14 +122,14 @@ window.CORE_COMMANDS = [
     { id: 'new-note', name: '新規ノート作成', handler: () => window.createNewNote() },
     { id: 'new-folder', name: '新規フォルダ作成', handler: () => window.createNewFolder() },
     { id: 'new-canvas', name: '新規キャンバス作成', handler: () => window.createNewCanvas() },
-    { id: 'toggle-split', name: '2画面モード切替', handler: () => window.toggleSplit() },
-    { id: 'toggle-preview', name: 'プレビュー切替', handler: () => window.togglePreviewMode() },
+    { id: 'split-pane', name: '画面を分割', handler: () => window.splitPane() },
+    { id: 'toggle-preview', name: 'プレビュー切替 (アクティブな画面)', handler: () => window.togglePreviewMode() },
     { id: 'open-dashboard', name: '全タスクを表示', handler: () => window.toggleDashboard() },
     { id: 'insert-table', name: '表を挿入', handler: () => window.insertTable() },
     { id: 'toggle-privacy', name: 'プライバシー保護モード切替', handler: () => window.togglePrivacy() },
     { id: 'open-today', name: '今日のノートを開く', handler: () => window.openToday() },
-    { id: 'export-data', name: '全データをダウンロード (JSON)', handler: () => window.exportData() }, // MODIFIED: Name changed for clarity
-    { id: 'save-data', name: 'JSONを保存 (Ctrl+S)', handler: () => window.exportData() }, // NEW: Ctrl+S command
+    { id: 'export-data', name: '全データをダウンロード (JSON)', handler: () => window.exportData() },
+    { id: 'save-data', name: 'JSONを保存 (Ctrl+S)', handler: () => window.exportData() },
     { id: 'download-md', name: '現在のノートをダウンロード (MD)', handler: () => window.downloadNote() },
     { id: 'toggle-timer', name: 'ポモドーロタイマー切替', handler: () => window.toggleTimer() },
     { id: 'go-back', name: '前に戻る', handler: () => window.goBack() },
@@ -221,16 +204,16 @@ window.parseMarkdown = function(text, isInline = false) {
             const body = contentLines.slice(1).join('<br>');
             h += `<div class="line-block callout co-${type.toUpperCase()}"><span class="callout-title">${title}</span>${body}</div>`;
         } else {
-            h += `<div class="line-block"><blockquote>${contentLines.join('<br>')}</blockquote></div>`;
+            h += `<div class="line-block block-quote">${contentLines.join('<br>')}</div>`;
         }
-        blockLines = []; inBlock = false;
+        blockLines = [];
+        inBlock = false;
     };
-    
+
     const flushTable = () => {
-        if (tableRows.length > 0) {
-            h += '<table border="1">' + tableRows.join('') + '</table>';
-            tableRows = [];
-        }
+        if (!tableRows.length) return;
+        h += `<table class="md-table">${tableRows.join('')}</table>`;
+        tableRows = [];
         inTable = false;
     };
 

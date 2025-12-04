@@ -4,11 +4,18 @@
 
 const els = {};
 
-document.addEventListener('DOMContentLoaded', () => {
+// Helper to get active element based on pane
+window.getActiveEditor = () => {
+    const pane = document.getElementById(`pane-${state.activePaneIndex}`);
+    return pane ? pane.querySelector('.pane-editor') : null;
+};
+
+// アプリケーション初期化のメイン関数
+window.initAppData = function () {
+    // 1. DOM要素の参照を取得 (elsを初期化)
     const id = (i) => document.getElementById(i);
     Object.assign(els, {
-        editor: id('editor'), preview: id('preview'), workspace: id('workspace'),
-        canvasArea: id('canvas-area'), canvasLayer: id('canvas-layer'),
+        workspaceGrid: id('workspace-grid'),
         title: id('title-input'), searchBox: id('search-box'),
         sidebarContent: id('sidebar-container'), fileTree: id('file-tree'),
         tabBar: id('tab-bar'),
@@ -19,13 +26,25 @@ document.addEventListener('DOMContentLoaded', () => {
         phraseOverlay: id('phrase-overlay'), phraseList: id('phrase-list'), phraseTitle: id('phrase-title'),
         timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
-        selectedCount: id('selected-count'), // 追加
+        selectedCount: id('selected-count'),
         sidebarToggle: id('sidebar-toggle'),
         formatMenu: id('format-menu')
     });
+    
+    // Dynamic getter for editor (compatibility)
+    Object.defineProperty(els, 'editor', {
+        get: window.getActiveEditor
+    });
+    // Dynamic getter for preview
+    Object.defineProperty(els, 'preview', {
+        get: () => {
+            const pane = document.getElementById(`pane-${state.activePaneIndex}`);
+            return pane ? pane.querySelector('.pane-preview') : null;
+        }
+    });
 
-    const defaultNotes = { "Home": "# Welcome v35.1\n\nFixed restore bug.\n\n[[Daily/Sample]]" };
-
+    // 2. データのロード
+    const defaultNotes = { "Home": "# Welcome v35.1\n\nMulti-pane supported.\n\n[[Daily/Sample]]" };
     state.notes = window.readJson(window.CONFIG.STORAGE_KEY, defaultNotes);
     state.images = window.readJson(window.CONFIG.IMAGES_KEY, {});
     state.expandedFolders = window.readJson(window.CONFIG.EXPANDED_KEY, {});
@@ -37,57 +56,73 @@ document.addEventListener('DOMContentLoaded', () => {
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
     state.clipboardHistory = window.readJson(window.CONFIG.CLIPBOARD_KEY, []);
 
+    // タブの復元
     const savedTabs = window.readJson(window.CONFIG.TABS_KEY, null);
     if (Array.isArray(savedTabs) && savedTabs.length) {
         state.openTabs = Array.from(new Set(savedTabs.filter(t => state.notes[t])));
     }
-
     if (!state.openTabs.length) state.openTabs = [state.currentTitle];
     if (!state.openTabs.includes(state.currentTitle)) state.openTabs.push(state.currentTitle);
 
-    if (!state.notes[state.currentTitle]) state.notes[state.currentTitle] = "";
+    // 現在のノートが存在しない場合の安全策
+    if (!state.notes[state.currentTitle]) state.notes[state.currentTitle] = "# " + state.currentTitle;
 
-    window.pushHistory(state.currentTitle);
-    window.loadNoteUI(state.currentTitle);
+    // 3. ペイン(画面)の初期化
+    state.panes = [{ id: 0, title: state.currentTitle, type: 'editor' }];
+    state.activePaneIndex = 0;
+
+    // 4. UIの描画
+    window.renderSidebar(); // ★ここでサイドバーを描画 (elsの準備後に実行)
+    window.renderPanes();
     window.renderTabBar();
-    window.persistTabs();
-    setupEventListeners();
-    window.refreshTemplateSources();
     window.applySidebarState();
+
+    // 5. 履歴・イベント設定・その他
+    window.pushHistory(state.currentTitle);
+    window.persistTabs();
+    setupEventListeners(); // イベントリスナー設定
+    window.refreshTemplateSources();
     window.lazyInitHeavyFeatures();
 
-    // ウィンドウを閉じるときに確認ダイアログを表示
+    // 終了時の警告
     window.onbeforeunload = function(e) {
         if (state.isModified) {
-            const confirmationMessage = '編集中の内容がありますが、閉じますか？ (データはlocalStorageに自動保存されていますが、最後に手動保存(JSON)してから変更があります)';
-            e.returnValue = confirmationMessage;
-            return confirmationMessage;
+            e.returnValue = '編集中の内容があります';
+            return '編集中の内容があります';
         }
     };
+};
+
+// アプリ起動時に呼び出す
+document.addEventListener("DOMContentLoaded", () => {
+    window.initAppData();
 });
 
 function setupEventListeners() {
-    els.editor.addEventListener('input', () => {
-        state.notes[state.currentTitle] = els.editor.value;
-        window.saveData();
-        window.updateStatusBar();
-        if (state.isSplit && !state.isDashboard) window.renderPreview();
+    // Global delegation for editor events since editors are dynamic
+    document.addEventListener('input', (e) => {
+        if (e.target.classList.contains('pane-editor')) {
+            const paneId = parseInt(e.target.closest('.pane').dataset.id, 10);
+            const pane = state.panes[paneId];
+            if (pane) {
+                state.notes[pane.title] = e.target.value;
+                window.saveData();
+                window.updateStatusBar();
+            }
+        }
     });
-    document.addEventListener('copy', () => {
-        const selected = document.getSelection()?.toString() || '';
-        window.captureClipboard(selected.trim().slice(0, 500));
-    });
-    els.editor.addEventListener('paste', window.handlePaste);
-    els.editor.addEventListener('keydown', window.handleEditorKeydown);
-    
-    // 追加: 文字が選択されたか、キーボードで選択範囲が動いたかを検出
-    const selectionWatcher = (e) => { window.updateSelectedCount(); window.updateFormatMenu(e); };
-    els.editor.addEventListener('mouseup', selectionWatcher);
-    els.editor.addEventListener('keyup', selectionWatcher);
-    els.editor.addEventListener('select', selectionWatcher);
-    els.editor.addEventListener('scroll', window.hideFormatMenu);
-    els.editor.addEventListener('blur', window.hideFormatMenu);
 
+    const selectionWatcher = (e) => { 
+        if(e.target.classList.contains('pane-editor')) {
+            window.updateSelectedCount(); 
+            window.updateFormatMenu(e); 
+        }
+    };
+    document.addEventListener('mouseup', selectionWatcher);
+    document.addEventListener('keyup', selectionWatcher);
+    document.addEventListener('select', selectionWatcher);
+    document.addEventListener('scroll', window.hideFormatMenu, true);
+    
     els.searchBox.addEventListener('input', window.handleSearch);
     document.getElementById('btn-new-note').onclick = () => window.createNewNote();
     document.getElementById('btn-today').onclick = window.openToday;
@@ -118,7 +153,8 @@ function setupEventListeners() {
     document.getElementById('btn-download').onclick = window.downloadNote;
     document.getElementById('btn-privacy').onclick = window.togglePrivacy;
     document.getElementById('btn-dashboard').onclick = window.toggleDashboard;
-    document.getElementById('btn-split').onclick = window.toggleSplit;
+    
+    document.getElementById('btn-split-add').onclick = window.splitPane;
     document.getElementById('btn-mode').onclick = window.togglePreviewMode;
 
     document.querySelectorAll('.settings-tab').forEach(tab => {
@@ -126,16 +162,6 @@ function setupEventListeners() {
     });
 
     els.timer.onclick = window.toggleTimer;
-
-    // Canvas Events
-    document.getElementById('cv-zoom-in').onclick = () => window.zoomCanvas(0.1);
-    document.getElementById('cv-zoom-out').onclick = () => window.zoomCanvas(-0.1);
-    document.getElementById('cv-reset').onclick = window.resetCanvas;
-    document.getElementById('cv-add-group').onclick = window.addCanvasGroup;
-    
-    // Canvas Mode Switch
-    document.getElementById('cv-mode-pointer').onclick = () => window.toggleCanvasMode('edit');
-    document.getElementById('cv-mode-pan').onclick = () => window.toggleCanvasMode('pan');
 
     document.onclick = (e) => {
         if(e.target === els.switcherOverlay) window.closeSwitcher();
@@ -149,19 +175,10 @@ function setupEventListeners() {
     document.onkeydown = window.handleGlobalKeys;
     els.switcherInput.oninput = window.updateSwitcher;
     els.commandInput.oninput = window.updateCommandPalette;
-    
-    els.canvasArea.addEventListener('mousedown', window.handleCanvasMouseDown);
-    els.canvasArea.addEventListener('mousemove', window.handleCanvasMouseMove);
-    els.canvasArea.addEventListener('mouseup', window.handleCanvasMouseUp);
-    els.canvasArea.addEventListener('wheel', window.handleCanvasWheel);
-    els.canvasArea.addEventListener('dblclick', window.handleCanvasDblClick);
 
     document.getElementById('btn-save-settings').onclick = window.saveSettings;
     document.getElementById('btn-reset-settings').onclick = window.resetSettings;
-
 }
-
-// --- Core Logic Implementation (Attached to window) ---
 
 window.persistTabs = function() {
     window.writeJson(window.CONFIG.TABS_KEY, state.openTabs);
@@ -169,104 +186,35 @@ window.persistTabs = function() {
 
 window.loadNote = function(title, isHistoryNav = false) {
     if (state.isDashboard) window.toggleDashboard();
+    
+    if (!state.panes[state.activePaneIndex]) state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor' };
+    state.panes[state.activePaneIndex].title = title;
+    
+    const content = state.notes[title] || "";
+    if (content.startsWith(window.CANVAS_MARKER)) {
+        state.panes[state.activePaneIndex].type = 'canvas';
+        window.loadCanvasData(content);
+    } else {
+        if (state.panes[state.activePaneIndex].type === 'canvas') {
+            state.panes[state.activePaneIndex].type = 'editor';
+        }
+    }
+
     if (!isHistoryNav && title !== state.currentTitle) {
         window.pushHistory(title);
     }
+    
     if (!state.openTabs.includes(title)) state.openTabs.push(title);
     state.currentTitle = title;
     localStorage.setItem(window.CONFIG.LAST_OPEN_KEY, title);
+    
     window.persistTabs();
-    if (typeof window.renderTabBar === 'function') window.renderTabBar();
-    window.loadNoteUI(title);
-    state.isModified = false; // Reset flag on note switch/load
-    window.updateSelectedCount(); // 追加: ノート切り替え時に選択文字数表示をリセット
-};
-
-window.loadNoteUI = function(title) {
+    window.renderTabBar();
+    window.renderPanes();
+    state.isModified = false; 
+    window.updateSelectedCount();
+    
     els.title.value = title;
-    const content = state.notes[title] || "";
-    
-    if (content.startsWith(window.CANVAS_MARKER)) {
-        state.isCanvasMode = true;
-        window.updateLayout();
-        window.loadCanvasData(content);
-    } else {
-        state.isCanvasMode = false;
-        els.editor.value = content;
-        window.updateLayout();
-        window.updateStatusBar(); // UI Logic
-        if (state.isPreview || state.isSplit) window.renderPreview();
-    }
-    window.renderSidebar(); // UI Logic
-    window.updateNavButtons();
-};
-
-window.updateLayout = function() {
-    const { isDashboard, isSplit, isCanvasMode } = state;
-    const editor = els.editor;
-    const preview = els.preview;
-    const canvas = els.canvasArea;
-    const modeBtn = document.getElementById('btn-mode');
-    const splitBtn = document.getElementById('btn-split');
-    const dashBtn = document.getElementById('btn-dashboard');
-
-    editor.className = 'hidden';
-    preview.className = 'hidden';
-    canvas.classList.remove('active');
-    
-    dashBtn.classList.remove('btn-active');
-    dashBtn.textContent = "✅ 全タスク";
-    splitBtn.classList.remove('btn-active');
-    
-    if (isCanvasMode) {
-        canvas.classList.add('active');
-        modeBtn.disabled = true;
-        splitBtn.disabled = true;
-        return;
-    }
-    modeBtn.disabled = false;
-    splitBtn.disabled = false;
-
-    if (isDashboard) {
-        preview.className = 'w-100 no-border';
-        preview.style.display = 'block';
-        dashBtn.classList.add('btn-active');
-        dashBtn.textContent = "📝 戻る";
-        window.renderTaskDashboard(); // UI Logic
-        return;
-    }
-
-    if (isSplit) {
-        editor.className = 'w-50';
-        preview.className = 'w-50';
-        editor.style.display = 'block';
-        preview.style.display = 'block';
-        splitBtn.classList.add('btn-active');
-        modeBtn.textContent = "👁 プレビュー"; 
-        window.renderPreview();
-        return;
-    }
-
-    if (state.isPreview) {
-        preview.className = 'w-100 no-border';
-        preview.style.display = 'block';
-        modeBtn.textContent = "✎ 編集";
-        modeBtn.classList.add('btn-active');
-        window.renderPreview();
-        return;
-    }
-
-    editor.className = 'w-100';
-    editor.style.display = 'block';
-    modeBtn.textContent = "👁 プレビュー";
-    modeBtn.classList.remove('btn-active');
-    editor.focus();
-};
-
-window.renderPreview = function() {
-    if (!els.preview) return;
-    const content = state.notes[state.currentTitle] || "";
-    els.preview.innerHTML = window.parseMarkdown(content);
 };
 
 window.pushHistory = function(title) {
@@ -283,12 +231,10 @@ window.updateNavButtons = function() {
     document.getElementById('btn-fwd').disabled = state.historyIndex >= state.historyStack.length - 1; 
 };
 
-window.toggleDashboard = function() { state.isDashboard = !state.isDashboard; window.updateLayout(); };
-window.toggleSplit = function() { state.isSplit = !state.isSplit; if(state.isSplit) state.isPreview = false; window.updateLayout(); };
-window.togglePreviewMode = function() { if(state.isSplit) { window.toggleSplit(); return; } state.isPreview = !state.isPreview; window.updateLayout(); };
+window.toggleDashboard = function() { state.isDashboard = !state.isDashboard; window.renderPanes(); };
 window.togglePrivacy = function() { state.isPrivacy = !state.isPrivacy; document.body.classList.toggle('privacy-active', state.isPrivacy); document.getElementById('btn-privacy').classList.toggle('btn-active', state.isPrivacy); };
 
-window.createNewNote = function(prefix = "") { const n = prompt("新規ノート名:", prefix); if (n) { if (!state.notes[n]) state.notes[n] = "# " + n.split('/').pop() + "\n"; window.loadNote(n); window.saveData(); if(state.isPreview && !state.isSplit) window.togglePreviewMode(); } };
+window.createNewNote = function(prefix = "") { const n = prompt("新規ノート名:", prefix); if (n) { if (!state.notes[n]) state.notes[n] = "# " + n.split('/').pop() + "\n"; window.loadNote(n); window.saveData(); } };
 
 window.createNewFolder = function(prefix = "") {
     const n = prompt("新規フォルダ名:", prefix);
@@ -300,60 +246,51 @@ window.createNewFolder = function(prefix = "") {
     } 
 };
 
-window.openToday = function() { const d = new Date(); const t = `${d.getFullYear()}/${('0' + (d.getMonth() + 1)).slice(-2)}/${('0' + d.getDate()).slice(-2)}/Daily`; if (!state.notes[t]) { state.notes[t] = `# ${t.split('/').pop()}\n\n## タスク\n- [ ] \n`; window.loadNote(t); window.saveData(); } else { window.loadNote(t); } };
+window.openToday = function() { 
+    const d = new Date(); 
+    const t = `${d.getFullYear()}/${('0' + (d.getMonth() + 1)).slice(-2)}/${('0' + d.getDate()).slice(-2)}/Daily`; 
+    if (!state.notes[t]) { 
+        state.notes[t] = `# ${t.split('/').pop()}\n\n## タスク\n- [ ] \n`; 
+        window.loadNote(t); 
+        window.saveData(); 
+    } else { 
+        window.loadNote(t); 
+    } 
+};
 
 window.handleGlobalKeys = function(e) {
     let keyStr = '';
-    
-    // Ctrl/Cmd + S のブラウザデフォルト動作を抑制するロジックを最優先でチェックする
     const isSaveAttempt = (e.key === 's' || e.key === 'S') && (e.ctrlKey || e.metaKey);
     const saveDataBinding = state.keymap['save-data'];
 
-    // まず、Ctrl/Cmd+Sが押されたかどうかをチェック
     if (isSaveAttempt) {
-        // keyStrを生成して設定値と比較するための準備
-        // この時点でe.preventDefault()を呼ぶことで、ブラウザの保存ダイアログを確実に防ぐ
         e.preventDefault(); 
-        
-        // keyStrを生成 (Ctrl+S or Cmd+S)
         if (e.ctrlKey || e.metaKey) keyStr += (e.metaKey ? 'Cmd+' : 'Ctrl+');
         keyStr += 'S';
-
-        // 設定値が 'Ctrl+S' (デフォルト) または 'Cmd+S' (Macの場合) に一致するか確認
         if (saveDataBinding && (saveDataBinding === keyStr || (saveDataBinding === 'Ctrl+S' && e.metaKey))) {
             const cmd = window.COMMANDS.find(c => c.id === 'save-data');
             if (cmd) cmd.handler();
             return;
         }
-        
-        // 設定値が一致しないか、カスタム設定の場合、keyStrを再度生成して後続のカスタムキーバインドロジックに任せる
     }
     
-    // Ctrl/Cmd+Sでなかった場合、またはカスタム設定が他のキーに割り当てられている場合
-    
-    // keyStrが既に生成されていたら再利用、そうでなければ生成を続行
     if (!keyStr) {
         if (e.ctrlKey || e.metaKey) keyStr += (e.metaKey ? 'Cmd+' : 'Ctrl+'); 
         if (e.altKey) keyStr += 'Alt+'; 
         if (e.shiftKey) keyStr += 'Shift+';
-        
         if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
         keyStr += (e.key === ' ' ? 'Space' : e.key.toUpperCase());
     }
 
-    // キャンバスの接続モードキャンセル (Escape)
     if (state.pendingConnectNodeId && e.key === 'Escape') {
         state.pendingConnectNodeId = null;
         window.renderCanvas();
         return;
     }
 
-    // 2. テキスト入力中は、装飾キーなしのホットキーは無視
     if ((document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') && (!e.ctrlKey && !e.altKey && !e.metaKey)) return;
 
-    // 3. その他のカスタムホットキーの処理
     for (const [cmdId, binding] of Object.entries(state.keymap)) {
-        // Ctrl+Sは既に処理済みだが、他のカスタムキーバインドをチェック
         if (binding && binding === keyStr) {
             e.preventDefault();
             const cmd = window.COMMANDS.find(c => c.id === cmdId);
@@ -362,11 +299,7 @@ window.handleGlobalKeys = function(e) {
         }
     }
     
-    // 4. Close overlays on Escape
     if (els.switcherOverlay.style.display === 'flex' && e.key === 'Escape') window.closeSwitcher();
     if (els.commandOverlay.style.display === 'flex' && e.key === 'Escape') window.closeCommandPalette();
     if (els.settingsOverlay.style.display === 'flex' && e.key === 'Escape') window.closeSettings();
-    
-    // キー入力後に選択文字数も更新する（キーボードによる選択範囲変更に対応）
-    if(document.activeElement === els.editor) window.updateSelectedCount();
 }
