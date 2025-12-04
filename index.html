@@ -128,6 +128,18 @@
                             <input id="daily-note-format" type="text" placeholder="例: Daily/{YYYY}-{MM}-{DD}" />
                             <small style="color:#888; display:block; margin-top:4px;">{YYYY} {MM} {DD} を使って日付を組み立てます</small>
                         </div>
+                        <div class="settings-section">
+                            <h3>レイアウトテンプレート</h3>
+                            <div class="setting-row">
+                                <label for="layout-template-lines">テンプレート一覧</label>
+                                <textarea id="layout-template-lines" rows="4" placeholder="例: 左右 50/50: 50,50\n黄金比: 62,38"></textarea>
+                                <small style="color:#888; display:block; margin-top:4px;">1行1テンプレートで「名前: カンマ区切りの割合」を入力します（Shift+ドラッグで適用）。</small>
+                            </div>
+                            <div class="setting-row">
+                                <label for="layout-template-active">Shift+ドラッグ時に使うテンプレート</label>
+                                <select id="layout-template-active"></select>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="settings-panel" id="settings-panel-hotkey">

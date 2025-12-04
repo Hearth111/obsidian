@@ -310,15 +310,17 @@ window.computeSelectionRect = function(textarea, start, end) {
     };
 };
 
-window.updateFormatMenu = function(e) {
-    if (!els.editor || !els.formatMenu) return;
-    const start = els.editor.selectionStart;
-    const end = els.editor.selectionEnd;
+window.updateFormatMenu = function(target) {
+    if (!els.formatMenu) return;
+    const ta = (target && target.classList && target.classList.contains('pane-editor')) ? target : (state.activeSelectionTarget || els.editor);
+    if (!ta) { window.hideFormatMenu(); return; }
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
     if (start === end) { window.hideFormatMenu(); return; }
 
     els.formatMenu.style.display = 'flex';
     els.formatMenu.style.visibility = 'hidden';
-    const rect = window.computeSelectionRect(els.editor, start, end);
+    const rect = window.computeSelectionRect(ta, start, end);
     if (!rect) { window.hideFormatMenu(); return; }
 
     const menuRect = els.formatMenu.getBoundingClientRect();
@@ -337,7 +339,7 @@ window.updateFormatMenu = function(e) {
 };
 
 window.applyFormatting = function(action) {
-    const ta = els.editor;
+    const ta = (state.activeSelectionTarget && state.activeSelectionTarget.classList && state.activeSelectionTarget.classList.contains('pane-editor')) ? state.activeSelectionTarget : els.editor;
     if (!ta) return;
     const start = ta.selectionStart;
     const end = ta.selectionEnd;
@@ -400,5 +402,6 @@ window.applyFormatting = function(action) {
     }
 
     ta.focus();
-    window.updateFormatMenu();
+    window.updateFormatMenu(ta);
+    window.updateSelectedCount(ta);
 }

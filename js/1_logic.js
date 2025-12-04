@@ -14,7 +14,8 @@ window.CONFIG = {
     SIDEBAR_KEY: 'obsidian_v35_sidebar_collapsed',
     CLIPBOARD_KEY: 'obsidian_v35_clipboard',
     PANES_KEY: 'obsidian_v35_panes',
-    PANE_LAYOUTS_KEY: 'obsidian_v35_pane_layouts'
+    PANE_LAYOUTS_KEY: 'obsidian_v35_pane_layouts',
+    LAYOUT_TEMPLATES_KEY: 'obsidian_v35_layout_templates'
 };
 
 window.readJson = function(key, fallback) {
@@ -67,6 +68,15 @@ window.DEFAULT_SETTINGS = {
     dailyNoteFormat: '{YYYY}/{MM}/{DD}/Daily'
 };
 
+window.DEFAULT_LAYOUT_SETTINGS = {
+    activeIndex: 0,
+    templates: [
+        { name: '左右 50/50', columns: [50, 50] },
+        { name: '三分割 33/34/33', columns: [33, 34, 33] },
+        { name: '黄金比 62/38', columns: [62, 38] }
+    ]
+};
+
 window.CANVAS_COLORS = [
     'rgba(127, 109, 242, 0.1)', 'rgba(229, 57, 53, 0.1)', 'rgba(255, 179, 0, 0.1)',
     'rgba(67, 160, 71, 0.1)', 'rgba(3, 169, 244, 0.1)', 'rgba(117, 117, 117, 0.1)'
@@ -90,6 +100,10 @@ window.state = {
     searchCacheReady: false,
     searchDb: null,
     pendingSearchUpdates: new Set(),
+
+    // Layout Template
+    layoutTemplates: window.DEFAULT_LAYOUT_SETTINGS.templates,
+    activeLayoutTemplate: window.DEFAULT_LAYOUT_SETTINGS.activeIndex,
 
     // View Modes & Layout
     isPrivacy: false,
@@ -123,7 +137,8 @@ window.state = {
     switcherResults: [],
     switcherIndex: 0,
     commandResults: [],
-    commandIndex: 0
+    commandIndex: 0,
+    activeSelectionTarget: null
 };
 
 window.CORE_COMMANDS = [
