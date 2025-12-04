@@ -217,7 +217,8 @@ function setupEventListeners() {
         document.getElementById('btn-open-layout-builder').onclick = window.openLayoutBuilder;
         document.getElementById('btn-close-layout-builder').onclick = window.closeLayoutBuilder;
         document.getElementById('btn-cancel-layout-builder').onclick = window.closeLayoutBuilder;
-        document.getElementById('btn-add-column').onclick = window.addLayoutBuilderColumn;
+        document.getElementById('btn-add-vertical').onclick = () => window.addLayoutBuilderSplit('vertical');
+        document.getElementById('btn-add-horizontal').onclick = () => window.addLayoutBuilderSplit('horizontal');
         document.getElementById('btn-even-horizontal').onclick = () => window.equalizeLayoutBuilder('horizontal');
         document.getElementById('btn-even-vertical').onclick = () => window.equalizeLayoutBuilder('vertical');
         document.getElementById('btn-reset-columns').onclick = window.resetLayoutBuilderColumns;
