@@ -45,6 +45,7 @@
             <button class="btn" id="btn-split-add">🌓 2画面</button>
             <button class="btn" id="btn-table">▦ 表</button>
             <button class="btn" id="btn-template">📝 テンプレ</button>
+            <button class="btn" id="btn-layout-menu">🧩 レイアウト</button>
             <button class="btn" id="btn-dashboard">✅ 全タスク</button>
             <button class="btn" id="btn-download">⬇️ MD保存</button>
             <button class="btn" id="btn-mode">👁 プレビュー</button>
@@ -129,11 +130,19 @@
                             <small style="color:#888; display:block; margin-top:4px;">{YYYY} {MM} {DD} を使って日付を組み立てます</small>
                         </div>
                         <div class="settings-section">
-                            <h3>レイアウトテンプレート</h3>
+                            <div class="layout-template-header">
+                                <div>
+                                    <h3>レイアウトテンプレート</h3>
+                                    <small style="color:#888;">好きな比率でウィンドウ配置を保存できます</small>
+                                </div>
+                                <div class="layout-template-actions">
+                                    <button class="btn btn-primary" id="btn-open-layout-builder">＋ レイアウト作成</button>
+                                </div>
+                            </div>
                             <div class="setting-row">
-                                <label for="layout-template-lines">テンプレート一覧</label>
-                                <textarea id="layout-template-lines" rows="4" placeholder="例: 左右 50/50: 50,50\n黄金比: 62,38"></textarea>
-                                <small style="color:#888; display:block; margin-top:4px;">1行1テンプレートで「名前: カンマ区切りの割合」を入力します（Shift+ドラッグで適用）。</small>
+                                <label for="layout-template-list">テンプレート一覧</label>
+                                <div id="layout-template-list" class="layout-template-list"></div>
+                                <textarea id="layout-template-lines" rows="4" style="display:none"></textarea>
                             </div>
                             <div class="setting-row">
                                 <label for="layout-template-active">Shift+ドラッグ時に使うテンプレート</label>
@@ -173,6 +182,37 @@
 
 <div id="context-menu"></div>
 <div id="template-menu"></div>
+<div id="layout-menu"></div>
+
+<div id="layout-builder-overlay">
+    <div id="layout-builder-modal">
+        <div class="layout-builder-header">
+            <div>
+                <div class="builder-title">🧩 レイアウトエディター</div>
+                <div class="builder-sub">PowerToys風のレイアウトをドラッグで調整</div>
+            </div>
+            <button class="btn" id="btn-close-layout-builder">✕</button>
+        </div>
+        <div class="layout-builder-body">
+            <div class="builder-toolbar">
+                <input type="text" id="layout-builder-name" placeholder="レイアウト名を入力" />
+                <div class="builder-buttons">
+                    <button class="btn" id="btn-add-column">＋ 分割を追加</button>
+                    <button class="btn" id="btn-reset-columns">↺ デフォルトに戻す</button>
+                </div>
+            </div>
+            <div id="layout-builder-preview" class="layout-builder-preview"></div>
+            <div class="builder-hint">列をドラッグして比率を調整できます。カードをドラッグして並び替えも可能です。</div>
+        </div>
+        <div class="layout-builder-footer">
+            <div id="layout-builder-summary" class="builder-summary"></div>
+            <div class="builder-footer-actions">
+                <button class="btn" id="btn-cancel-layout-builder">キャンセル</button>
+                <button class="btn btn-primary" id="btn-save-layout-template">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="js/1_logic.js"></script>
 <script src="js/2_data.js"></script>
