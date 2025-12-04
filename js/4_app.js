@@ -69,6 +69,7 @@ window.initAppData = function () {
 
     // 3. ペイン(画面)の初期化
     state.panes = [{ id: 0, title: state.currentTitle, type: 'editor' }];
+    state.paneSizes = [1];
     state.activePaneIndex = 0;
 
     // 4. UIの描画
@@ -112,16 +113,21 @@ function setupEventListeners() {
         }
     });
 
-    const selectionWatcher = (e) => { 
+    const selectionWatcher = (e) => {
         if(e.target.classList.contains('pane-editor')) {
-            window.updateSelectedCount(); 
-            window.updateFormatMenu(e); 
+            window.updateSelectedCount();
+            window.updateFormatMenu(e);
         }
     };
     document.addEventListener('mouseup', selectionWatcher);
     document.addEventListener('keyup', selectionWatcher);
     document.addEventListener('select', selectionWatcher);
     document.addEventListener('scroll', window.hideFormatMenu, true);
+    document.addEventListener('keydown', (e) => {
+        if (e.target.classList.contains('pane-editor')) {
+            window.handleEditorKeydown(e);
+        }
+    });
     
     els.searchBox.addEventListener('input', window.handleSearch);
     document.getElementById('btn-new-note').onclick = () => window.createNewNote();
@@ -134,6 +140,22 @@ function setupEventListeners() {
     
     els.sidebarContent.ondragover = (e) => e.preventDefault();
     els.sidebarContent.ondrop = window.handleDropRoot;
+
+    els.workspaceGrid.ondragover = (e) => {
+        if (state.draggedItem) {
+            e.preventDefault();
+            els.workspaceGrid.classList.add('workspace-drop-target');
+        }
+    };
+    els.workspaceGrid.ondragleave = () => els.workspaceGrid.classList.remove('workspace-drop-target');
+    els.workspaceGrid.ondrop = (e) => {
+        if (state.draggedItem) {
+            e.preventDefault();
+            els.workspaceGrid.classList.remove('workspace-drop-target');
+            window.openNoteInNewPane(state.draggedItem);
+            state.draggedItem = null;
+        }
+    };
 
     els.title.onchange = () => window.performRename(state.currentTitle, els.title.value.trim());
     document.getElementById('btn-back').onclick = window.goBack;
@@ -154,7 +176,7 @@ function setupEventListeners() {
     document.getElementById('btn-privacy').onclick = window.togglePrivacy;
     document.getElementById('btn-dashboard').onclick = window.toggleDashboard;
     
-    document.getElementById('btn-split-add').onclick = window.splitPane;
+    document.getElementById('btn-split-add').onclick = window.toggleDualView;
     document.getElementById('btn-mode').onclick = window.togglePreviewMode;
 
     document.querySelectorAll('.settings-tab').forEach(tab => {
