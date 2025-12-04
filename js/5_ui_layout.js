@@ -73,27 +73,35 @@ window.renderLayoutOverlay = function(template, hoverIndex = -1) {
     overlay.style.height = `${bounds.height}px`;
 
     overlay.innerHTML = '';
-    const zones = window.computeTemplateZones(template, bounds.width);
+    const zones = window.computeTemplateZones(template, bounds.width, bounds.height);
     zones.forEach((zone, idx) => {
         const div = document.createElement('div');
         div.className = 'layout-zone' + (idx === hoverIndex ? ' active' : '');
-        div.style.left = `${zone.start}px`;
+        div.style.left = `${DESKTOP_PADDING}px`;
         div.style.width = `${zone.width}px`;
+        div.style.top = `${zone.start}px`;
+        div.style.height = `${zone.height}px`;
         div.textContent = `${template.name || 'テンプレート'} (${Math.round(zone.ratio * 100)}%)`;
         overlay.appendChild(div);
     });
 };
 
-window.computeTemplateZones = function(template, boundsWidth) {
+window.computeTemplateZones = function(template, boundsWidth, boundsHeight) {
     const total = template.columns.reduce((sum, v) => sum + Math.max(0, v), 0) || 1;
-    const available = Math.max(MIN_WINDOW_WIDTH, boundsWidth - DESKTOP_PADDING * 2);
+    const availableHeight = Math.max(MIN_WINDOW_HEIGHT, Math.min(boundsHeight - DESKTOP_PADDING * 2, boundsHeight));
+    const availableWidth = Math.max(MIN_WINDOW_WIDTH, Math.min(boundsWidth - DESKTOP_PADDING * 2, boundsWidth));
     let cursor = DESKTOP_PADDING;
     const zones = template.columns.map((col, idx) => {
-        const width = idx === template.columns.length - 1
-            ? (boundsWidth - DESKTOP_PADDING) - cursor
-            : Math.max(MIN_WINDOW_WIDTH, Math.round(available * (col / total)));
-        const zone = { start: cursor, width: Math.min(width, boundsWidth - cursor - DESKTOP_PADDING), ratio: (col / total) };
-        cursor += width;
+        const height = idx === template.columns.length - 1
+            ? (boundsHeight - DESKTOP_PADDING) - cursor
+            : Math.max(MIN_WINDOW_HEIGHT, Math.round(availableHeight * (col / total)));
+        const zone = {
+            start: cursor,
+            height: Math.min(height, boundsHeight - cursor - DESKTOP_PADDING),
+            width: availableWidth,
+            ratio: (col / total)
+        };
+        cursor += height;
         return zone;
     });
     return zones;
@@ -344,15 +352,15 @@ window.startWindowDrag = function(e, index) {
     const onMove = (ev) => {
         const useTemplate = ev.shiftKey && template;
         if (useTemplate) {
-            const zones = window.computeTemplateZones(template, bounds.width);
-            const localX = Math.max(0, Math.min(ev.clientX - bounds.x, bounds.width));
-            const hovered = zones.findIndex(z => localX >= z.start && localX <= z.start + z.width);
+            const zones = window.computeTemplateZones(template, bounds.width, bounds.height);
+            const localY = Math.max(0, Math.min(ev.clientY - bounds.y, bounds.height));
+            const hovered = zones.findIndex(z => localY >= z.start && localY <= z.start + z.height);
             const targetIndex = hovered !== -1 ? hovered : 0;
             const zone = zones[targetIndex];
-            layout.width = Math.max(MIN_WINDOW_WIDTH, zone.width);
-            layout.x = Math.max(0, Math.min(zone.start, bounds.width - layout.width - DESKTOP_PADDING));
-            layout.height = Math.max(MIN_WINDOW_HEIGHT, bounds.height - DESKTOP_PADDING * 2);
-            layout.y = DESKTOP_PADDING;
+            layout.width = Math.max(MIN_WINDOW_WIDTH, bounds.width - DESKTOP_PADDING * 2);
+            layout.x = DESKTOP_PADDING;
+            layout.height = Math.max(MIN_WINDOW_HEIGHT, zone.height);
+            layout.y = Math.max(0, Math.min(zone.start, bounds.height - layout.height - DESKTOP_PADDING));
             window.renderLayoutOverlay(template, targetIndex);
         } else {
             window.hideLayoutOverlay();
@@ -1033,8 +1041,14 @@ window.equalizeLayoutBuilder = function(direction = 'horizontal') {
         const targetTotal = Math.max(100, BUILDER_MIN_COLUMN * count);
         const per = Math.max(BUILDER_MIN_COLUMN, Math.floor(targetTotal / count));
         normalized.fill(per);
-        const remainder = targetTotal - per * count;
-        normalized[normalized.length - 1] = Math.max(BUILDER_MIN_COLUMN, normalized[normalized.length - 1] + remainder);
+        let remainder = targetTotal - per * count;
+        if (remainder > 0 && count >= 2) {
+            normalized[0] = Math.max(BUILDER_MIN_COLUMN, normalized[0] + 1);
+            remainder -= 1;
+        }
+        if (remainder > 0) {
+            normalized[normalized.length - 1] = Math.max(BUILDER_MIN_COLUMN, normalized[normalized.length - 1] + remainder);
+        }
     }
 
     window.layoutBuilderState.columns = normalized;
@@ -1075,7 +1089,7 @@ window.renderLayoutBuilderPreview = function() {
 
         const label = document.createElement('div');
         label.className = 'block-label';
-        label.textContent = `列 ${idx + 1}`;
+        label.textContent = `ブロック ${idx + 1}`;
         const ratio = document.createElement('div');
         ratio.className = 'block-ratio';
         ratio.textContent = `${Math.round((col / total) * 100)}%`;
@@ -1099,19 +1113,19 @@ window.startLayoutHandleDrag = function(e, index) {
     const container = document.getElementById('layout-builder-preview');
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const startX = e.clientX;
+    const startY = e.clientY;
     const totalPair = cols[index] + cols[index + 1];
-    const startLeft = cols[index];
+    const startTop = cols[index];
     const sumAll = cols.reduce((a, b) => a + b, 0) || 1;
 
     const onMove = (ev) => {
-        const deltaPx = ev.clientX - startX;
-        const deltaValue = (deltaPx / rect.width) * sumAll;
-        let left = Math.max(BUILDER_MIN_COLUMN, Math.min(totalPair - BUILDER_MIN_COLUMN, startLeft + deltaValue));
-        let right = totalPair - left;
-        if (right < BUILDER_MIN_COLUMN) { right = BUILDER_MIN_COLUMN; left = totalPair - right; }
-        cols[index] = left;
-        cols[index + 1] = right;
+        const deltaPx = ev.clientY - startY;
+        const deltaValue = (deltaPx / rect.height) * sumAll;
+        let top = Math.max(BUILDER_MIN_COLUMN, Math.min(totalPair - BUILDER_MIN_COLUMN, startTop + deltaValue));
+        let bottom = totalPair - top;
+        if (bottom < BUILDER_MIN_COLUMN) { bottom = BUILDER_MIN_COLUMN; top = totalPair - bottom; }
+        cols[index] = top;
+        cols[index + 1] = bottom;
         window.renderLayoutBuilderPreview();
     };
 
