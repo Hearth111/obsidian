@@ -89,9 +89,8 @@ window.state = {
     searchCacheReady: false,
     searchDb: null,
     pendingSearchUpdates: new Set(),
-    
+
     // View Modes & Layout
-    isDashboard: false,
     isPrivacy: false,
     showCompletedTasks: false,
     isCanvasMode: false,
