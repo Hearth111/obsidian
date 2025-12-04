@@ -79,6 +79,7 @@ window.state = {
     settings: window.DEFAULT_SETTINGS,
     openTabs: [],
     templateCatalog: [],
+    templateCacheKey: '',
     currentTitle: "Home",
     historyStack: [],
     historyIndex: -1,

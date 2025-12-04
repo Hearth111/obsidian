@@ -108,6 +108,23 @@ window.normalizeTemplateFolder = function(folderName) {
     return folderName.replace(/^\/+|\/+$/g, '');
 };
 
+window.invalidateTemplateCache = function() {
+    state.templateCacheKey = '';
+};
+
+window.computeTemplateCacheKey = function() {
+    const settings = state.settings || window.DEFAULT_SETTINGS;
+    const normalizedFolder = window.normalizeTemplateFolder(settings.templateFolder || '');
+    const keys = Object.keys(state.notes).sort().join('|');
+    return [
+        normalizedFolder,
+        settings.includeSubfoldersForTemplates,
+        settings.templateMenuGrouping,
+        settings.insertSpacingAroundTemplate,
+        keys
+    ].join('::');
+};
+
 window.buildTemplateCatalog = function() {
     const catalog = [];
     const settings = state.settings || window.DEFAULT_SETTINGS;
@@ -196,6 +213,9 @@ window.updateTemplateCommands = function() {
 };
 
 window.refreshTemplateSources = function() {
+    const cacheKey = window.computeTemplateCacheKey();
+    if (state.templateCacheKey === cacheKey && state.templateCatalog.length) return;
+    state.templateCacheKey = cacheKey;
     state.templateCatalog = window.buildTemplateCatalog();
     window.renderTemplateMenu();
     window.updateTemplateCommands();
@@ -229,6 +249,21 @@ window.insertTemplateById = function(id) {
 };
 
 // --- Floating Format Menu ---
+let selectionMeasure = null;
+
+function getSelectionMeasure() {
+    if (selectionMeasure) return selectionMeasure;
+    selectionMeasure = document.createElement('div');
+    selectionMeasure.style.position = 'absolute';
+    selectionMeasure.style.visibility = 'hidden';
+    selectionMeasure.style.whiteSpace = 'pre-wrap';
+    selectionMeasure.style.wordBreak = 'break-word';
+    selectionMeasure.style.overflowWrap = 'break-word';
+    selectionMeasure.style.pointerEvents = 'none';
+    document.body.appendChild(selectionMeasure);
+    return selectionMeasure;
+}
+
 window.hideFormatMenu = function() {
     if (!els.formatMenu) return;
     els.formatMenu.style.display = 'none';
@@ -238,15 +273,10 @@ window.computeSelectionRect = function(textarea, start, end) {
     if (!textarea) return null;
     const taRect = textarea.getBoundingClientRect();
     const style = window.getComputedStyle(textarea);
-    const div = document.createElement('div');
+    const div = getSelectionMeasure();
     ['fontSize', 'fontFamily', 'fontWeight', 'lineHeight', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderLeftWidth', 'borderRightWidth', 'borderTopWidth', 'borderBottomWidth', 'letterSpacing', 'wordSpacing', 'boxSizing'].forEach(key => {
         div.style[key] = style[key];
     });
-    div.style.position = 'absolute';
-    div.style.whiteSpace = 'pre-wrap';
-    div.style.wordBreak = 'break-word';
-    div.style.overflowWrap = 'break-word';
-    div.style.visibility = 'hidden';
     div.style.width = textarea.clientWidth + 'px';
     div.style.minHeight = textarea.clientHeight + 'px';
     div.style.top = taRect.top + 'px';
@@ -258,9 +288,8 @@ window.computeSelectionRect = function(textarea, start, end) {
     span.textContent = selectionText;
     div.appendChild(span);
 
-    document.body.appendChild(div);
     const spanRect = span.getBoundingClientRect();
-    document.body.removeChild(div);
+    div.textContent = '';
 
     return {
         left: spanRect.left - textarea.scrollLeft,

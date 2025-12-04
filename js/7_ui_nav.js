@@ -205,6 +205,7 @@ window.performRename = function(oldPath, newPath) {
     const bi = state.bookmarks.indexOf(oldPath);
     if(bi !== -1) state.bookmarks[bi] = newPath;
     state.openTabs = state.openTabs.map(t => t === oldPath ? newPath : (t.startsWith(oldPath + '/') ? t.replace(oldPath, newPath) : t));
+    window.invalidateTemplateCache();
     window.saveData();
     window.persistTabs();
     if (state.currentTitle.startsWith(oldPath)) window.loadNote(state.currentTitle.replace(oldPath, newPath));
@@ -215,6 +216,7 @@ window.deleteItem = function(path) {
     if (!confirm("削除しますか？")) return;
     Object.keys(state.notes).filter(k => k === path || k.startsWith(path + '/')).forEach(k => delete state.notes[k]);
     state.bookmarks = state.bookmarks.filter(b => b !== path);
+    window.invalidateTemplateCache();
     window.saveData();
     state.openTabs = state.openTabs.filter(t => !(t === path || t.startsWith(path + '/')));
     window.persistTabs();
