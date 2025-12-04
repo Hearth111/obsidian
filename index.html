@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Local Obsidian v35 (Canvas Tweak)</title>
+<title>Local Obsidian v35 (Multi-Pane)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#20232a">
 <link rel="manifest" href="manifest.json">
@@ -10,8 +10,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<button id="sidebar-toggle" class="btn">⮜</button>
 
 <div id="sidebar">
     <div class="sidebar-header">
@@ -33,55 +31,30 @@
     </div>
 </div>
 
-    <div id="main">
-        <div class="editor-header">
+<div id="main">
+    <div class="editor-header">
+        <div class="header-left">
+            <button id="sidebar-toggle" title="サイドバー切替">☰</button>
             <button class="btn" id="btn-back" title="戻る">⬅</button>
             <button class="btn" id="btn-fwd" title="進む">➡</button>
-            <span style="color:#666; font-size:0.8em; margin-left:5px;">Title:</span>
-            <input type="text" id="title-input" placeholder="Folder/NoteName">
+            <span style="color:#666; font-size:0.8em; margin-left:10px;">Title:</span>
+            <input type="text" id="title-input" placeholder="Note Title">
+        </div>
 
-            <div class="header-tools">
-                <button class="btn" id="btn-table">▦ 表</button>
-                <button class="btn" id="btn-template">📝 テンプレ</button>
+        <div class="header-tools">
+            <button class="btn" id="btn-split-add">➕ 分割</button>
+            <button class="btn" id="btn-table">▦ 表</button>
+            <button class="btn" id="btn-template">📝 テンプレ</button>
             <button class="btn" id="btn-dashboard">✅ 全タスク</button>
             <button class="btn" id="btn-download">⬇️ MD保存</button>
-            <button class="btn" id="btn-split">🌗 2画面</button>
             <button class="btn" id="btn-mode">👁 プレビュー</button>
             <button class="btn" id="btn-privacy" title="プライバシーモード">🛡️</button>
-            </div>
-        </div>
-
-        <div id="tab-bar"></div>
-
-        <div id="workspace">
-            <textarea id="editor" placeholder="# Welcome v35&#13;&#13;JSファイルを分割し、復元機能を修正しました。"></textarea>
-            <div id="preview"></div>
-        
-        <div id="canvas-area">
-            <div id="canvas-layer">
-                <svg id="canvas-svg" style="position:absolute; top:0; left:0; overflow:visible; pointer-events:none; width:100%; height:100%;">
-                    <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
-                        </marker>
-                    </defs>
-                </svg>
-                <div id="canvas-nodes"></div>
-            </div>
-            <div id="canvas-controls">
-                <button class="btn btn-active" id="cv-mode-pointer" title="選択/移動モード">❖</button>
-                <button class="btn" id="cv-mode-pan" title="全体移動モード(Hand)">✋</button>
-                <button class="btn" id="cv-mode-connect" title="ノード接続モード">🔗</button>
-                
-                <span style="border-right:1px solid #666; margin:0 5px;"></span>
-                <button class="btn" id="cv-add-group" title="グループ追加">🔲</button>
-                <button class="btn" id="cv-zoom-in">＋</button>
-                <button class="btn" id="cv-zoom-out">－</button>
-                <button class="btn" id="cv-reset">⟲</button>
-                <span id="canvas-info">Double Click: Node | Shift+Drag: Connect</span>
-            </div>
         </div>
     </div>
+
+    <div id="tab-bar"></div>
+
+    <div id="workspace-grid" class="grid-1"></div>
 
     <div id="status-bar">
         <div class="status-group">
@@ -109,15 +82,6 @@
         <input type="text" id="command-input" placeholder="> コマンドを入力...">
         <div id="command-list"></div>
     </div>
-</div>
-
-<div id="format-menu" class="floating-menu">
-    <button data-action="bold" title="太字"><strong>B</strong></button>
-    <button data-action="italic" title="イタリック"><em>I</em></button>
-    <button data-action="quote" title="引用">❝</button>
-    <button data-action="heading" title="見出し">H1</button>
-    <button data-action="list" title="リスト">•</button>
-    <button data-action="code" title="コード">{ }</button>
 </div>
 
 <div id="phrase-overlay">
@@ -159,7 +123,6 @@
                         <div class="setting-row checkbox">
                             <label><input type="checkbox" id="template-spacing" /> 挿入前後に空行を自動で付与する</label>
                         </div>
-                        <p class="settings-hint">テンプレートフォルダ配下に置いたノートがそのまま雛形として呼び出されます。フォルダ名は大文字小文字を区別します。</p>
                     </div>
                 </div>
                 <div class="settings-panel" id="settings-panel-hotkey">
@@ -177,6 +140,15 @@
     </div>
 </div>
 
+<div id="format-menu" class="floating-menu">
+    <button data-action="bold" title="太字"><strong>B</strong></button>
+    <button data-action="italic" title="イタリック"><em>I</em></button>
+    <button data-action="quote" title="引用">❝</button>
+    <button data-action="heading" title="見出し">H1</button>
+    <button data-action="list" title="リスト">•</button>
+    <button data-action="code" title="コード">{ }</button>
+</div>
+
 <div id="slide-overlay">
     <div id="slide-content"></div>
     <div id="slide-controls">Esc: 終了 | ← →: 移動</div>
@@ -188,8 +160,11 @@
 <script src="js/1_logic.js"></script>
 <script src="js/2_data.js"></script>
 <script src="js/3_canvas.js"></script>
-<script src="js/5_ui.js"></script>
+<script src="js/5_ui_layout.js"></script>
+<script src="js/6_ui_editor.js"></script>
+<script src="js/7_ui_nav.js"></script>
 <script src="js/4_app.js"></script>
+
 <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
