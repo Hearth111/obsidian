@@ -110,9 +110,10 @@ window.state = {
     
     // Interaction Flags
     switcherCallback: null,
-    
+
     // Runtime
     draggedItem: null,
+    draggingPaneIndex: null,
     contextTarget: null,
     timerInterval: null,
     timerTime: 25 * 60,

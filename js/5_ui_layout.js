@@ -15,6 +15,12 @@ window.ensurePaneSizes = function() {
     }
 };
 
+window.rebalancePaneSizes = function() {
+    if (!state.panes.length) return;
+    state.paneSizes = Array(state.panes.length).fill(1);
+    window.persistPaneSizes();
+};
+
 window.persistPaneSizes = function() {
     window.writeJson(window.CONFIG.PANES_KEY, state.paneSizes);
 };
@@ -84,11 +90,39 @@ window.renderPanes = function() {
         paneEl.className = 'pane' + (index === state.activePaneIndex ? ' active-pane' : '');
         paneEl.id = `pane-${index}`;
         paneEl.dataset.id = index;
-        paneEl.onclick = () => window.setActivePane(index);
+        paneEl.onclick = () => { if (state.activePaneIndex !== index) window.setActivePane(index); };
 
         // Header
         const header = document.createElement('div');
         header.className = 'pane-header';
+        header.draggable = true;
+        header.ondragstart = (e) => {
+            e.stopPropagation();
+            state.draggingPaneIndex = index;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/pane-index', String(index));
+            paneEl.classList.add('pane-dragging');
+        };
+        const clearDragState = () => {
+            state.draggingPaneIndex = null;
+            paneEl.classList.remove('pane-dragging');
+            document.querySelectorAll('.pane-wrapper').forEach(w => w.classList.remove('pane-drag-over'));
+        };
+        header.ondragend = clearDragState;
+        wrapper.ondragover = (e) => {
+            if (state.draggingPaneIndex === null || state.draggingPaneIndex === index) return;
+            e.preventDefault();
+            wrapper.classList.add('pane-drag-over');
+        };
+        wrapper.ondragleave = () => wrapper.classList.remove('pane-drag-over');
+        wrapper.ondrop = (e) => {
+            e.preventDefault();
+            const from = state.draggingPaneIndex ?? parseInt(e.dataTransfer.getData('text/pane-index'), 10);
+            clearDragState();
+            if (typeof from === 'number' && !Number.isNaN(from) && from !== index) {
+                window.reorderPanes(from, index);
+            }
+        };
 
         const titleSpan = document.createElement('span');
         titleSpan.className = 'pane-title';
@@ -190,6 +224,7 @@ window.renderPanes = function() {
 
 window.setActivePane = function(index) {
     if (index < 0 || index >= state.panes.length) return;
+    if (state.activePaneIndex === index && state.currentTitle === state.panes[index].title) return;
     state.activePaneIndex = index;
     const pane = state.panes[index];
     state.currentTitle = pane.title;
@@ -259,8 +294,23 @@ window.closePane = function(index) {
     // Reassign IDs/Index
     state.panes.forEach((p, i) => p.id = i);
     state.activePaneIndex = Math.min(state.activePaneIndex, state.panes.length - 1);
-    window.persistPaneSizes();
+    window.rebalancePaneSizes();
     window.setActivePane(state.activePaneIndex);
+};
+
+window.reorderPanes = function(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 0 || fromIndex >= state.panes.length) return;
+    if (toIndex < 0 || toIndex >= state.panes.length) return;
+
+    const [pane] = state.panes.splice(fromIndex, 1);
+    const [size] = state.paneSizes.splice(fromIndex, 1);
+    state.panes.splice(toIndex, 0, pane);
+    state.paneSizes.splice(toIndex, 0, size || 1);
+    state.panes.forEach((p, i) => p.id = i);
+    state.activePaneIndex = state.panes.indexOf(pane);
+    window.persistPaneSizes();
+    window.renderPanes();
 };
 
 window.loadNoteIntoPane = function(index, title) {
