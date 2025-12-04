@@ -50,7 +50,7 @@ window.getDesktopBounds = function() {
     const desktop = document.getElementById('workspace-grid');
     if (!desktop) return { width: window.innerWidth, height: window.innerHeight, x: 0, y: 0 };
     const rect = desktop.getBoundingClientRect();
-    return { width: rect.width, height: rect.height, x: rect.left, y: rect.top };
+    return { width: Math.round(rect.width), height: Math.round(rect.height), x: rect.left, y: rect.top };
 };
 
 window.hideLayoutOverlay = function() {
@@ -351,7 +351,8 @@ window.startWindowDrag = function(e, index) {
             const zone = zones[targetIndex];
             layout.width = Math.max(MIN_WINDOW_WIDTH, zone.width);
             layout.x = Math.max(0, Math.min(zone.start, bounds.width - layout.width - DESKTOP_PADDING));
-            layout.y = Math.max(0, Math.min(startTop + (ev.clientY - startY), bounds.height - (layout.height || MIN_WINDOW_HEIGHT)));
+            layout.height = Math.max(MIN_WINDOW_HEIGHT, bounds.height - DESKTOP_PADDING * 2);
+            layout.y = DESKTOP_PADDING;
             window.renderLayoutOverlay(template, targetIndex);
         } else {
             window.hideLayoutOverlay();
@@ -1005,6 +1006,41 @@ window.addLayoutBuilderColumn = function() {
     window.renderLayoutBuilderPreview();
 };
 
+window.splitLayoutBuilderColumn = function(index) {
+    const cols = window.layoutBuilderState.columns;
+    if (!Array.isArray(cols) || index < 0 || index >= cols.length) return;
+    const original = cols[index];
+    const first = Math.max(BUILDER_MIN_COLUMN, Math.round(original / 2));
+    const second = Math.max(BUILDER_MIN_COLUMN, original - first);
+    cols.splice(index, 1, first, second);
+    window.renderLayoutBuilderPreview();
+};
+
+window.equalizeLayoutBuilder = function(direction = 'horizontal') {
+    const cols = window.layoutBuilderState.columns;
+    if (!Array.isArray(cols) || !cols.length) {
+        window.layoutBuilderState.columns = [100];
+        window.renderLayoutBuilderPreview();
+        return;
+    }
+
+    const total = cols.reduce((a, b) => a + b, 0) || 1;
+    const count = cols.length;
+    const base = Math.max(BUILDER_MIN_COLUMN, Math.round(total / count));
+    const normalized = Array(count).fill(base);
+
+    if (direction === 'horizontal') {
+        const targetTotal = Math.max(100, BUILDER_MIN_COLUMN * count);
+        const per = Math.max(BUILDER_MIN_COLUMN, Math.floor(targetTotal / count));
+        normalized.fill(per);
+        const remainder = targetTotal - per * count;
+        normalized[normalized.length - 1] = Math.max(BUILDER_MIN_COLUMN, normalized[normalized.length - 1] + remainder);
+    }
+
+    window.layoutBuilderState.columns = normalized;
+    window.renderLayoutBuilderPreview();
+};
+
 window.renderLayoutBuilderPreview = function() {
     const container = document.getElementById('layout-builder-preview');
     const summary = document.getElementById('layout-builder-summary');
@@ -1020,6 +1056,7 @@ window.renderLayoutBuilderPreview = function() {
         block.style.flexBasis = `${(col / total) * 100}%`;
         block.draggable = true;
         block.dataset.index = idx;
+        block.onclick = (e) => { e.preventDefault(); window.splitLayoutBuilderColumn(idx); };
         block.ondragstart = (e) => {
             e.dataTransfer.setData('text/plain', idx.toString());
             e.dataTransfer.effectAllowed = 'move';

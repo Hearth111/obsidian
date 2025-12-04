@@ -218,6 +218,8 @@ function setupEventListeners() {
         document.getElementById('btn-close-layout-builder').onclick = window.closeLayoutBuilder;
         document.getElementById('btn-cancel-layout-builder').onclick = window.closeLayoutBuilder;
         document.getElementById('btn-add-column').onclick = window.addLayoutBuilderColumn;
+        document.getElementById('btn-even-horizontal').onclick = () => window.equalizeLayoutBuilder('horizontal');
+        document.getElementById('btn-even-vertical').onclick = () => window.equalizeLayoutBuilder('vertical');
         document.getElementById('btn-reset-columns').onclick = window.resetLayoutBuilderColumns;
         document.getElementById('btn-save-layout-template').onclick = window.saveLayoutFromBuilder;
         builderOverlay.onclick = (e) => { if (e.target === builderOverlay) window.closeLayoutBuilder(); };
