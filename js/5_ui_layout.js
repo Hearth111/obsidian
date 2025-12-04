@@ -9,7 +9,12 @@ window.ensurePaneSizes = function() {
     const needsReset = state.paneSizes.length !== state.panes.length || state.paneSizes.some(v => !v || v <= 0);
     if (needsReset) {
         state.paneSizes = Array(state.panes.length).fill(1);
+        window.persistPaneSizes();
     }
+};
+
+window.persistPaneSizes = function() {
+    window.writeJson(window.CONFIG.PANES_KEY, state.paneSizes);
 };
 
 window.applyPaneSizes = function() {
@@ -46,6 +51,7 @@ window.startResizePane = function(e, leftIndex, rightIndex) {
     const onUp = () => {
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
+        window.persistPaneSizes();
     };
 
     document.addEventListener('pointermove', onMove);
@@ -130,6 +136,7 @@ window.renderPanes = function() {
             const previewDiv = document.createElement('div');
             previewDiv.className = 'pane-preview';
             previewDiv.innerHTML = window.parseMarkdown(noteContent);
+            window.decoratePreview(previewDiv);
             content.appendChild(previewDiv);
         } else if (pane.type === 'canvas') {
             // Setup canvas container
@@ -218,6 +225,7 @@ window.toggleDualView = function() {
         state.panes.forEach((p, i) => p.id = i);
         state.activePaneIndex = Math.min(editorIndex, state.panes.length - 1);
         state.currentTitle = state.panes[state.activePaneIndex].title;
+        window.persistPaneSizes();
         window.renderPanes();
         return;
     }
@@ -235,6 +243,7 @@ window.toggleDualView = function() {
     state.panes.forEach((p, i) => p.id = i);
     state.activePaneIndex = editorIndex;
     state.currentTitle = active.title;
+    window.persistPaneSizes();
     window.renderPanes();
 };
 
@@ -248,6 +257,7 @@ window.closePane = function(index) {
     // Reassign IDs/Index
     state.panes.forEach((p, i) => p.id = i);
     state.activePaneIndex = Math.min(state.activePaneIndex, state.panes.length - 1);
+    window.persistPaneSizes();
     window.setActivePane(state.activePaneIndex);
 };
 
@@ -268,6 +278,7 @@ window.openNoteInNewPane = function(path) {
     state.panes.push(newPane);
     state.paneSizes.push(1);
     state.activePaneIndex = state.panes.length - 1;
+    window.persistPaneSizes();
     window.loadNote(path);
 };
 
@@ -456,6 +467,8 @@ window.renderTemplateSettingsForm = function() {
     document.getElementById('template-include-sub').checked = !!state.settings.includeSubfoldersForTemplates;
     document.getElementById('template-grouping').value = state.settings.templateMenuGrouping || 'path';
     document.getElementById('template-spacing').checked = !!state.settings.insertSpacingAroundTemplate;
+    const dailyInput = document.getElementById('daily-note-format');
+    if (dailyInput) dailyInput.value = state.settings.dailyNoteFormat || window.DEFAULT_SETTINGS.dailyNoteFormat;
 };
 
 window.switchSettingsPanel = function(panelId) {
@@ -510,7 +523,8 @@ window.saveSettings = function() {
         templateFolder: window.normalizeTemplateFolder(document.getElementById('template-folder-input').value.trim()),
         includeSubfoldersForTemplates: document.getElementById('template-include-sub').checked,
         templateMenuGrouping: document.getElementById('template-grouping').value,
-        insertSpacingAroundTemplate: document.getElementById('template-spacing').checked
+        insertSpacingAroundTemplate: document.getElementById('template-spacing').checked,
+        dailyNoteFormat: document.getElementById('daily-note-format').value.trim() || window.DEFAULT_SETTINGS.dailyNoteFormat
     };
     state.settings = { ...state.settings, ...templateSettings };
     window.writeJson(window.CONFIG.SETTINGS_KEY, state.settings);
