@@ -207,9 +207,22 @@ window.persistTabs = function() {
 };
 
 window.loadNote = function(title, isHistoryNav = false) {
+    const activePane = state.panes[state.activePaneIndex];
+    const isActiveSameTitle = !!(activePane && activePane.title === title);
+    const existingPaneIndex = window.findExistingPaneIndex(title, state.activePaneIndex);
+    if (!isActiveSameTitle && existingPaneIndex !== -1) {
+        if (!state.openTabs.includes(title)) state.openTabs.push(title);
+        if (!isHistoryNav && title !== state.currentTitle) window.pushHistory(title);
+        state.currentTitle = title;
+        localStorage.setItem(window.CONFIG.LAST_OPEN_KEY, title);
+        window.persistTabs();
+        window.setActivePane(existingPaneIndex);
+        return;
+    }
+
     if (!state.panes[state.activePaneIndex]) state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor' };
     state.panes[state.activePaneIndex].title = title;
-    
+
     const content = state.notes[title] || "";
     if (content.startsWith(window.CANVAS_MARKER)) {
         state.panes[state.activePaneIndex].type = 'canvas';

@@ -8,6 +8,24 @@ const MAX_PANES = 12;
 const MULTIROW_THRESHOLD = 7;
 const MULTIROW_COLUMNS = 6;
 
+window.findExistingPaneIndex = function(title, excludeIndex = -1) {
+    let editorIndex = -1;
+    let previewIndex = -1;
+    let fallbackIndex = -1;
+
+    state.panes.forEach((p, idx) => {
+        if (idx === excludeIndex) return;
+        if (p.title !== title) return;
+        if (p.type === 'editor' && editorIndex === -1) editorIndex = idx;
+        else if (p.type === 'preview' && previewIndex === -1) previewIndex = idx;
+        else if (fallbackIndex === -1) fallbackIndex = idx;
+    });
+
+    if (editorIndex !== -1) return editorIndex;
+    if (previewIndex !== -1) return previewIndex;
+    return fallbackIndex;
+};
+
 window.shouldUseMultiRowLayout = function() {
     return state.panes.length >= MULTIROW_THRESHOLD;
 };
@@ -79,6 +97,7 @@ window.renderPanes = function() {
 
     window.ensurePaneSizes();
     const useMultiRow = window.shouldUseMultiRowLayout();
+    const shouldStretchTall = useMultiRow && state.panes.length <= 11;
     grid.className = useMultiRow ? 'grid-multi-row' : `grid-${state.panes.length}`;
     if (useMultiRow) {
         grid.style.gridTemplateColumns = `repeat(${MULTIROW_COLUMNS}, minmax(0, 1fr))`;
@@ -93,6 +112,13 @@ window.renderPanes = function() {
         const wrapper = document.createElement('div');
         wrapper.className = 'pane-wrapper';
         wrapper.style.flexGrow = state.paneSizes[index] || 1;
+        if (shouldStretchTall) {
+            const belowIndex = index + MULTIROW_COLUMNS;
+            const hasBelow = belowIndex < state.panes.length;
+            wrapper.style.gridRowEnd = hasBelow ? '' : 'span 2';
+        } else {
+            wrapper.style.gridRowEnd = '';
+        }
 
         const paneEl = document.createElement('div');
         paneEl.className = 'pane' + (index === state.activePaneIndex ? ' active-pane' : '');
@@ -351,6 +377,11 @@ window.loadNoteIntoPane = function(index, title) {
 
 window.openNoteInNewPane = function(path) {
     if (!state.notes[path]) return;
+    const existingIndex = window.findExistingPaneIndex(path);
+    if (existingIndex !== -1) {
+        window.setActivePane(existingIndex);
+        return;
+    }
     if (state.panes.length >= MAX_PANES) {
         alert(`最大${MAX_PANES}画面までです`);
         return;
