@@ -61,16 +61,13 @@ window.initAppData = function () {
     if (Array.isArray(savedTabs) && savedTabs.length) {
         state.openTabs = Array.from(new Set(savedTabs.filter(t => state.notes[t])));
     }
-    if (!state.openTabs.length) state.openTabs = [state.currentTitle];
-    if (!state.openTabs.includes(state.currentTitle)) state.openTabs.push(state.currentTitle);
-
-    // 現在のノートが存在しない場合の安全策
-    if (!state.notes[state.currentTitle]) state.notes[state.currentTitle] = "# " + state.currentTitle;
 
     // 3. ペイン(画面)の初期化
-    state.panes = [{ id: 0, title: state.currentTitle, type: 'editor' }];
+    state.panes = [];
     state.paneSizes = window.readJson(window.CONFIG.PANES_KEY, [1]);
-    state.activePaneIndex = 0;
+    state.paneLayouts = window.readJson(window.CONFIG.PANE_LAYOUTS_KEY, []);
+    state.zCounter = state.paneLayouts.reduce((max, l) => Math.max(max, (l && l.z) || 0), 10);
+    state.activePaneIndex = -1;
 
     // 4. UIの描画
     window.renderSidebar(); // ★ここでサイドバーを描画 (elsの準備後に実行)
@@ -79,7 +76,6 @@ window.initAppData = function () {
     window.applySidebarState();
 
     // 5. 履歴・イベント設定・その他
-    window.pushHistory(state.currentTitle);
     window.persistTabs();
     setupEventListeners(); // イベントリスナー設定
     window.refreshTemplateSources();
@@ -207,6 +203,14 @@ window.persistTabs = function() {
 };
 
 window.loadNote = function(title, isHistoryNav = false) {
+    if (state.activePaneIndex === -1) {
+        state.activePaneIndex = 0;
+    }
+    if (!state.panes[state.activePaneIndex]) {
+        state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor' };
+        window.ensurePaneLayout(state.activePaneIndex);
+    }
+
     const activePane = state.panes[state.activePaneIndex];
     const isActiveSameTitle = !!(activePane && activePane.title === title);
     const existingPaneIndex = window.findExistingPaneIndex(title, state.activePaneIndex);
@@ -279,8 +283,10 @@ window.toggleDashboard = function() {
     const newPane = { id: state.panes.length, title: 'Dashboard', type: 'dashboard' };
     state.panes.push(newPane);
     state.paneSizes.push(1);
+    state.paneLayouts.push(window.createPaneLayout(state.panes.length - 1));
     state.activePaneIndex = state.panes.length - 1;
     window.persistPaneSizes();
+    window.persistPaneLayouts();
     window.renderPanes();
     window.renderTabBar();
 };

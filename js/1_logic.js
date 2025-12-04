@@ -13,7 +13,8 @@ window.CONFIG = {
     TABS_KEY: 'obsidian_v35_tabs',
     SIDEBAR_KEY: 'obsidian_v35_sidebar_collapsed',
     CLIPBOARD_KEY: 'obsidian_v35_clipboard',
-    PANES_KEY: 'obsidian_v35_panes'
+    PANES_KEY: 'obsidian_v35_panes',
+    PANE_LAYOUTS_KEY: 'obsidian_v35_pane_layouts'
 };
 
 window.readJson = function(key, fallback) {
@@ -100,7 +101,9 @@ window.state = {
     // Multi-Pane System
     panes: [], // { id, title, type: 'editor'|'preview'|'canvas' }
     paneSizes: [],
-    activePaneIndex: 0,
+    paneLayouts: [], // { x, y, width, height, z, minimized, maximized, restore? }
+    activePaneIndex: -1,
+    zCounter: 10,
     headingCollapse: {},
 
     // Canvas State (Shared or active)

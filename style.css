@@ -105,60 +105,64 @@ details[open] > summary .folder-icon { transform: rotate(90deg); }
 .tab-close { background: transparent; border: none; color: #bbb; cursor: pointer; font-size: 0.9em; padding: 0; margin-left: 4px; }
 .tab-close:hover { color: #fff; }
 
-/* --- Workspace Grid System (Multi-Pane) --- */
+/* --- Desktop Workspace (Window-style panes) --- */
 #workspace-grid {
     flex: 1;
-    display: flex;
-    gap: 2px;
-    background: var(--border-color);
-    overflow: auto;
-    align-items: stretch;
+    position: relative;
+    background: #1f1f1f;
+    overflow: hidden;
     min-height: 0;
-}
-.grid-multi-row {
-    display: grid !important;
-    gap: 8px;
-    align-items: stretch;
-}
-.grid-multi-row .pane-wrapper { min-width: 0; height: 100%; }
-.grid-multi-row .pane { height: 100%; }
-.pane-wrapper {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 0;
-    min-width: 140px;
-    min-height: 0;
-    height: 100%;
-}
-.pane-resizer {
-    width: 6px;
-    cursor: col-resize;
-    background: rgba(255,255,255,0.04);
-    border-left: 1px solid var(--border-color);
-    border-right: 1px solid var(--border-color);
-    flex: 0 0 6px;
-    transition: background 0.15s ease;
-}
-.pane-resizer:hover {
-    background: rgba(255,255,255,0.12);
-}
-.workspace-drop-target {
-    outline: 2px dashed var(--accent-color);
-    outline-offset: -4px;
-}
-.pane-wrapper.pane-drag-over {
-    outline: 2px dashed var(--accent-color);
-}
-.pane-dragging {
-    opacity: 0.7;
 }
 
-/* Pane Styles */
-.pane {
-    background: var(--bg-color); display: flex; flex-direction: column;
-    overflow: hidden; position: relative; border: 1px solid transparent; min-height: 0; height: 100%;
+.workspace-desktop {
+    background: linear-gradient(135deg, #1f1f1f 0%, #21252b 100%);
 }
-.pane.active-pane { border: 1px solid var(--accent-color); }
+
+.desktop-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #666;
+    font-size: 1.1em;
+    border: 1px dashed #444;
+    padding: 18px 28px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+}
+
+.pane.window-pane {
+    position: absolute;
+    background: var(--bg-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    transition: box-shadow 0.2s ease;
+    min-height: 0;
+}
+
+.pane.window-pane.active-pane {
+    border-color: var(--accent-color);
+    box-shadow: 0 12px 36px rgba(127,109,242,0.35);
+}
+
+.pane-minimized {
+    overflow: hidden;
+}
+
+.pane-resize-handle {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 60%, rgba(255,255,255,0.12));
+    border-radius: 4px;
+}
 
 .pane-header {
     height: 28px; background: #252526; border-bottom: 1px solid var(--border-color);
