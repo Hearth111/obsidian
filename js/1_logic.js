@@ -12,7 +12,8 @@ window.CONFIG = {
     SETTINGS_KEY: 'obsidian_v35_settings',
     TABS_KEY: 'obsidian_v35_tabs',
     SIDEBAR_KEY: 'obsidian_v35_sidebar_collapsed',
-    CLIPBOARD_KEY: 'obsidian_v35_clipboard'
+    CLIPBOARD_KEY: 'obsidian_v35_clipboard',
+    PANES_KEY: 'obsidian_v35_panes'
 };
 
 window.readJson = function(key, fallback) {
@@ -60,8 +61,9 @@ window.DEFAULT_KEYMAP = {
 window.DEFAULT_SETTINGS = {
     templateFolder: 'Templates',
     includeSubfoldersForTemplates: true,
-    templateMenuGrouping: 'path', 
-    insertSpacingAroundTemplate: true
+    templateMenuGrouping: 'path',
+    insertSpacingAroundTemplate: true,
+    dailyNoteFormat: '{YYYY}/{MM}/{DD}/Daily'
 };
 
 window.CANVAS_COLORS = [
@@ -312,4 +314,45 @@ window.parseInline = function(text) {
     });
 
     return t;
-}
+};
+
+window.formatDailyNotePath = function(date = new Date()) {
+    const settings = state.settings || window.DEFAULT_SETTINGS;
+    const format = settings.dailyNoteFormat || window.DEFAULT_SETTINGS.dailyNoteFormat;
+    const yyyy = date.getFullYear().toString();
+    const mm = ('0' + (date.getMonth() + 1)).slice(-2);
+    const dd = ('0' + date.getDate()).slice(-2);
+    return format
+        .replaceAll('{YYYY}', yyyy)
+        .replaceAll('{MM}', mm)
+        .replaceAll('{DD}', dd);
+};
+
+window.decoratePreview = function(container) {
+    if (!container) return;
+    const headings = Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+    headings.forEach((heading) => {
+        if (!heading.isConnected) return;
+        const level = parseInt(heading.tagName.substring(1), 10);
+        const wrapper = document.createElement('details');
+        wrapper.className = `collapsible-heading level-${level}`;
+        wrapper.open = true;
+
+        const summary = document.createElement('summary');
+        summary.innerHTML = heading.innerHTML;
+        wrapper.appendChild(summary);
+
+        let cursor = heading.nextSibling;
+        while (cursor) {
+            if (cursor.nodeType === 1 && /^H[1-6]$/.test(cursor.tagName)) {
+                const nextLevel = parseInt(cursor.tagName.substring(1), 10);
+                if (nextLevel <= level) break;
+            }
+            const next = cursor.nextSibling;
+            wrapper.appendChild(cursor);
+            cursor = next;
+        }
+
+        heading.replaceWith(wrapper);
+    });
+};

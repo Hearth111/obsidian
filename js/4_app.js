@@ -69,7 +69,7 @@ window.initAppData = function () {
 
     // 3. ペイン(画面)の初期化
     state.panes = [{ id: 0, title: state.currentTitle, type: 'editor' }];
-    state.paneSizes = [1];
+    state.paneSizes = window.readJson(window.CONFIG.PANES_KEY, [1]);
     state.activePaneIndex = 0;
 
     // 4. UIの描画
@@ -280,9 +280,8 @@ window.createNewFolder = function(prefix = "") {
     }
 };
 
-window.openToday = function() { 
-    const d = new Date(); 
-    const t = `${d.getFullYear()}/${('0' + (d.getMonth() + 1)).slice(-2)}/${('0' + d.getDate()).slice(-2)}/Daily`;
+window.openToday = function() {
+    const t = window.formatDailyNotePath(new Date());
     if (!state.notes[t]) {
         state.notes[t] = `# ${t.split('/').pop()}\n\n## タスク\n- [ ] \n`;
         window.invalidateTemplateCache();
