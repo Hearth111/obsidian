@@ -172,13 +172,16 @@ window.createPaneLayout = function(index) {
         height: baseHeight,
         z: ++state.zCounter,
         minimized: false,
-        maximized: false
+        maximized: false,
+        pinned: false
     };
 };
 
 window.ensurePaneLayout = function(index) {
     if (!state.paneLayouts[index]) state.paneLayouts[index] = window.createPaneLayout(index);
-    return state.paneLayouts[index];
+    const layout = state.paneLayouts[index];
+    if (typeof layout.pinned === 'undefined') layout.pinned = false;
+    return layout;
 };
 
 window.bringPaneToFront = function(index) {
@@ -230,7 +233,7 @@ window.renderPanes = function() {
         const layout = window.ensurePaneLayout(index);
         if (typeof pane.isPrivacy === 'undefined') pane.isPrivacy = false;
         const paneEl = document.createElement('div');
-        paneEl.className = 'pane window-pane' + (index === state.activePaneIndex ? ' active-pane' : '') + (layout.minimized ? ' pane-minimized' : '') + (pane.isPrivacy ? ' pane-privacy' : '');
+        paneEl.className = 'pane window-pane' + (index === state.activePaneIndex ? ' active-pane' : '') + (layout.minimized ? ' pane-minimized' : '') + (pane.isPrivacy ? ' pane-privacy' : '') + (layout.pinned ? ' pane-pinned' : '');
         paneEl.id = `pane-${index}`;
         paneEl.dataset.id = index;
         paneEl.style.zIndex = layout.z || index + 1;
@@ -272,6 +275,7 @@ window.renderPanes = function() {
         header.className = 'pane-header';
         header.onpointerdown = (e) => {
             if (e.target.closest('.pane-controls')) return;
+            if (layout.pinned) return;
             window.startWindowDrag(e, index);
         };
         header.ondblclick = () => window.toggleMaximizePane(index);
@@ -298,6 +302,13 @@ window.renderPanes = function() {
         maximizeBtn.title = layout.maximized ? '元に戻す' : '全画面';
         maximizeBtn.onclick = (e) => { e.stopPropagation(); window.toggleMaximizePane(index); };
         controls.appendChild(maximizeBtn);
+
+        const pinBtn = document.createElement('button');
+        pinBtn.className = 'pane-btn' + (layout.pinned ? ' btn-active' : '');
+        pinBtn.title = layout.pinned ? '位置固定を解除' : '位置を固定';
+        pinBtn.textContent = layout.pinned ? '📌' : '📍';
+        pinBtn.onclick = (e) => { e.stopPropagation(); window.togglePinPane(index); };
+        controls.appendChild(pinBtn);
 
         // Mode toggle button
         if (pane.type !== 'canvas' && pane.type !== 'dashboard') {
@@ -402,7 +413,7 @@ window.renderPanes = function() {
 
 window.startWindowDrag = function(e, index) {
     const layout = state.paneLayouts[index];
-    if (!layout || layout.maximized) return;
+    if (!layout || layout.maximized || layout.pinned) return;
     const startX = e.clientX;
     const startY = e.clientY;
     const startLeft = layout.x || 0;
@@ -447,7 +458,7 @@ window.startWindowDrag = function(e, index) {
 
 window.startWindowResize = function(e, index) {
     const layout = state.paneLayouts[index];
-    if (!layout || layout.maximized) return;
+    if (!layout || layout.maximized || layout.pinned) return;
     e.preventDefault();
     const startX = e.clientX;
     const startY = e.clientY;
@@ -493,7 +504,16 @@ window.toggleMaximizePane = function(index) {
         layout.restore = { x: layout.x, y: layout.y, width: layout.width, height: layout.height };
         layout.maximized = true;
         layout.minimized = false;
+        window.bringPaneToFront(index);
     }
+    window.persistPaneLayouts();
+    window.renderPanes();
+};
+
+window.togglePinPane = function(index) {
+    const layout = state.paneLayouts[index];
+    if (!layout) return;
+    layout.pinned = !layout.pinned;
     window.persistPaneLayouts();
     window.renderPanes();
 };
