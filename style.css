@@ -177,6 +177,20 @@ details[open] > summary .folder-icon { transform: rotate(90deg); }
     box-shadow: 0 12px 36px rgba(127,109,242,0.35);
 }
 
+.pane-pinned {
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+    border-style: dashed;
+}
+
+.pane-pinned .pane-header {
+    cursor: default;
+    background: #2a2a2b;
+}
+
+.pane-pinned .pane-resize-handle {
+    display: none;
+}
+
 .pane-minimized {
     overflow: hidden;
 }
