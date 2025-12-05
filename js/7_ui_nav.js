@@ -30,7 +30,7 @@ window.renderSidebar = function() {
             d.className = 'tree-item';
             d.innerHTML = `<span style="color:var(--bookmark-color)">★</span> ${p.split('/').pop()}`;
             if(p === state.currentTitle) d.classList.add('active');
-            d.onclick = () => window.loadNote(p);
+            d.onclick = () => window.openNoteInNewPane(p);
             d.oncontextmenu = (e) => window.showContextMenu(e, {type:'file', path:p});
             bl.appendChild(d);
         }
@@ -63,7 +63,7 @@ window.createTreeDom = function(node) {
             d.textContent = k;
             if (item.__path === state.currentTitle) d.classList.add('active');
             
-            d.onclick = () => window.loadNote(item.__path);
+            d.onclick = () => window.openNoteInNewPane(item.__path);
             d.oncontextmenu = (e) => window.showContextMenu(e, {type:'file', path:item.__path});
             
             d.draggable = true;
@@ -100,7 +100,7 @@ window.createTreeDom = function(node) {
                 label.onclick = (e) => {
                     e.preventDefault(); // detailsのトグル動作を防ぐ
                     // e.stopPropagation(); // 必要に応じてバブリングを止める
-                    window.loadNote(item.__path);
+                    window.openNoteInNewPane(item.__path);
                 };
 
                 // アクティブ時の強調表示（簡易的）
@@ -305,7 +305,7 @@ window.handleSearch = function() {
             const d = document.createElement('div');
             d.className = 'tree-item';
             d.textContent = p;
-            d.onclick = () => window.loadNote(p);
+            d.onclick = () => window.openNoteInNewPane(p);
             list.appendChild(d);
         });
         if (list.children.length === 0) {
