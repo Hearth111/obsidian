@@ -7,7 +7,10 @@ const OFFLINE_ASSETS = [
   '/js/2_data.js',
   '/js/3_canvas.js',
   '/js/4_app.js',
-  '/js/5_ui_layout.js',
+  '/js/5_ui_panes.js',
+  '/js/5_ui_navigation.js',
+  '/js/5_ui_settings.js',
+  '/js/5_ui_timer.js',
   '/js/6_ui_editor.js',
   '/js/7_ui_nav.js',
   '/manifest.json'
