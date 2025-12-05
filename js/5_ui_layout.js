@@ -1156,6 +1156,40 @@ window.getLayoutNodeByPath = function(node, path = []) {
     return path.reduce((acc, idx) => (acc && acc.children ? acc.children[idx] : null), node);
 };
 
+window.mergeLayoutBuilderSplit = function(path, direction) {
+    const targetDirection = direction === 'horizontal' ? 'horizontal' : 'vertical';
+    const segments = Array.isArray(path) ? [...path] : [];
+
+    let cursor = segments;
+    while (cursor.length > 0) {
+        const parentPath = cursor.slice(0, -1);
+        const parentNode = window.getLayoutNodeByPath(window.layoutBuilderState.layout, parentPath);
+        if (parentNode && parentNode.type === 'split' && parentNode.direction === targetDirection) {
+            const mergedSize = Array.isArray(parentNode.sizes)
+                ? parentNode.sizes.reduce((a, b) => a + Math.max(1, b), 0)
+                : Math.max(1, parentNode.size || 100);
+            const replacement = { type: 'leaf', size: mergedSize };
+
+            if (parentPath.length === 0) {
+                window.layoutBuilderState.layout = replacement;
+            } else {
+                const grandParentPath = parentPath.slice(0, -1);
+                const grandParent = window.getLayoutNodeByPath(window.layoutBuilderState.layout, grandParentPath);
+                const parentIndex = parentPath[parentPath.length - 1];
+                if (grandParent && Array.isArray(grandParent.children) && parentIndex < grandParent.children.length) {
+                    grandParent.children[parentIndex] = replacement;
+                } else {
+                    window.layoutBuilderState.layout = replacement;
+                }
+            }
+
+            window.renderLayoutBuilderPreview();
+            return;
+        }
+        cursor = parentPath;
+    }
+};
+
 window.equalizeLayoutBuilder = function(direction = 'vertical', node = window.layoutBuilderState.layout) {
     if (!node) return;
     if (node.type === 'split') {
@@ -1213,8 +1247,16 @@ window.renderLayoutBuilderPreview = function() {
         ratio.textContent = zone ? `${Math.round(zone.ratio * 100)}%` : '';
         block.appendChild(label);
         block.appendChild(ratio);
-        block.onclick = (e) => { e.preventDefault(); window.splitLayoutBuilderBlock(path, 'vertical'); };
-        block.oncontextmenu = (e) => { e.preventDefault(); window.splitLayoutBuilderBlock(path, 'horizontal'); };
+        block.onclick = (e) => {
+            e.preventDefault();
+            if (e.ctrlKey) { window.mergeLayoutBuilderSplit(path, 'horizontal'); return; }
+            window.splitLayoutBuilderBlock(path, 'vertical');
+        };
+        block.oncontextmenu = (e) => {
+            e.preventDefault();
+            if (e.ctrlKey) { window.mergeLayoutBuilderSplit(path, 'vertical'); return; }
+            window.splitLayoutBuilderBlock(path, 'horizontal');
+        };
         return block;
     };
 
