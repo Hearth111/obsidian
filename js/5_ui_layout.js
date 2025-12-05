@@ -228,8 +228,9 @@ window.renderPanes = function() {
 
     state.panes.forEach((pane, index) => {
         const layout = window.ensurePaneLayout(index);
+        if (typeof pane.isPrivacy === 'undefined') pane.isPrivacy = false;
         const paneEl = document.createElement('div');
-        paneEl.className = 'pane window-pane' + (index === state.activePaneIndex ? ' active-pane' : '') + (layout.minimized ? ' pane-minimized' : '');
+        paneEl.className = 'pane window-pane' + (index === state.activePaneIndex ? ' active-pane' : '') + (layout.minimized ? ' pane-minimized' : '') + (pane.isPrivacy ? ' pane-privacy' : '');
         paneEl.id = `pane-${index}`;
         paneEl.dataset.id = index;
         paneEl.style.zIndex = layout.z || index + 1;
@@ -307,6 +308,13 @@ window.renderPanes = function() {
             modeBtn.onclick = (e) => { e.stopPropagation(); window.togglePaneMode(index); };
             controls.appendChild(modeBtn);
         }
+
+        const privacyBtn = document.createElement('button');
+        privacyBtn.className = 'pane-btn' + (pane.isPrivacy ? ' btn-active' : '');
+        privacyBtn.innerHTML = '🛡️';
+        privacyBtn.title = pane.isPrivacy ? 'プライバシーシールド解除' : 'プライバシーシールド適用';
+        privacyBtn.onclick = (e) => { e.stopPropagation(); window.togglePanePrivacy(index); };
+        controls.appendChild(privacyBtn);
 
         const closeBtn = document.createElement('button');
         closeBtn.className = 'pane-btn';
@@ -545,7 +553,7 @@ window.toggleDualView = function() {
         return;
     }
 
-    const previewPane = { id: state.panes.length, title: active.title, type: 'preview' };
+    const previewPane = { id: state.panes.length, title: active.title, type: 'preview', isPrivacy: !!active.isPrivacy };
     const insertIndex = editorIndex + 1;
     state.panes.splice(insertIndex, 0, previewPane);
     const baseSize = state.paneSizes[editorIndex] || 1;
@@ -660,7 +668,7 @@ window.openNoteInNewPane = function(path) {
     }
     const content = state.notes[path];
     const type = content.startsWith(window.CANVAS_MARKER) ? 'canvas' : 'editor';
-    const newPane = { id: state.panes.length, title: path, type };
+    const newPane = { id: state.panes.length, title: path, type, isPrivacy: false };
     state.panes.push(newPane);
     state.paneSizes.push(1);
     state.paneLayouts.push(window.createPaneLayout(state.panes.length - 1));
@@ -680,6 +688,13 @@ window.togglePaneMode = function(index) {
 
 window.togglePreviewMode = function() {
     window.togglePaneMode(state.activePaneIndex);
+};
+
+window.togglePanePrivacy = function(index) {
+    const pane = state.panes[index];
+    if (!pane) return;
+    pane.isPrivacy = !pane.isPrivacy;
+    window.renderPanes();
 };
 
 window.updateModeToggleButton = function() {

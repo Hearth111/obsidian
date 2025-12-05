@@ -236,7 +236,7 @@ window.loadNote = function(title, isHistoryNav = false) {
         state.activePaneIndex = 0;
     }
     if (!state.panes[state.activePaneIndex]) {
-        state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor' };
+        state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor', isPrivacy: false };
         window.ensurePaneLayout(state.activePaneIndex);
     }
 
@@ -253,7 +253,8 @@ window.loadNote = function(title, isHistoryNav = false) {
         return;
     }
 
-    if (!state.panes[state.activePaneIndex]) state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor' };
+    if (!state.panes[state.activePaneIndex]) state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor', isPrivacy: false };
+    if (typeof state.panes[state.activePaneIndex].isPrivacy === 'undefined') state.panes[state.activePaneIndex].isPrivacy = false;
     state.panes[state.activePaneIndex].title = title;
 
     const content = state.notes[title] || "";
@@ -323,7 +324,7 @@ window.toggleDashboard = function() {
         return;
     }
 
-    const newPane = { id: state.panes.length, title: 'Dashboard', type: 'dashboard' };
+    const newPane = { id: state.panes.length, title: 'Dashboard', type: 'dashboard', isPrivacy: false };
     state.panes.push(newPane);
     state.paneSizes.push(1);
     state.paneLayouts.push(window.createPaneLayout(state.panes.length - 1));
