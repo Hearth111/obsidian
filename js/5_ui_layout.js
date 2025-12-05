@@ -43,6 +43,7 @@ window.ensurePaneSizes = function() {
 };
 
 window.persistPaneLayouts = function() {
+    window.persistDesktopSize();
     window.writeJson(window.CONFIG.PANE_LAYOUTS_KEY, state.paneLayouts);
 };
 
@@ -51,6 +52,40 @@ window.getDesktopBounds = function() {
     if (!desktop) return { width: window.innerWidth, height: window.innerHeight, x: 0, y: 0 };
     const rect = desktop.getBoundingClientRect();
     return { width: Math.round(rect.width), height: Math.round(rect.height), x: rect.left, y: rect.top };
+};
+
+window.persistDesktopSize = function(bounds = null) {
+    const current = bounds || window.getDesktopBounds();
+    state.desktopSize = { width: current.width, height: current.height };
+    window.writeJson(window.CONFIG.DESKTOP_SIZE_KEY, state.desktopSize);
+};
+
+window.scalePaneLayoutsToDesktop = function(previousBounds, nextBounds) {
+    if (!previousBounds || !nextBounds || !previousBounds.width || !previousBounds.height || !nextBounds.width || !nextBounds.height) return;
+    const scaleX = nextBounds.width / previousBounds.width;
+    const scaleY = nextBounds.height / previousBounds.height;
+    if (Math.abs(scaleX - 1) < 0.01 && Math.abs(scaleY - 1) < 0.01) return;
+
+    const clampLayout = (layout) => {
+        if (!layout) return;
+        layout.width = Math.max(MIN_WINDOW_WIDTH, Math.round((layout.width || MIN_WINDOW_WIDTH) * scaleX));
+        layout.height = Math.max(MIN_WINDOW_HEIGHT, Math.round((layout.height || MIN_WINDOW_HEIGHT) * scaleY));
+        layout.x = Math.max(0, Math.round((layout.x || DESKTOP_PADDING) * scaleX));
+        layout.y = Math.max(0, Math.round((layout.y || DESKTOP_PADDING) * scaleY));
+
+        const maxLeft = Math.max(0, nextBounds.width - layout.width - DESKTOP_PADDING);
+        const maxTop = Math.max(0, nextBounds.height - layout.height - DESKTOP_PADDING);
+        layout.x = Math.min(layout.x, maxLeft);
+        layout.y = Math.min(layout.y, maxTop);
+    };
+
+    state.paneLayouts.forEach((layout) => {
+        if (!layout) return;
+        clampLayout(layout);
+        if (layout.restore) clampLayout(layout.restore);
+    });
+
+    window.persistPaneLayouts();
 };
 
 window.hideLayoutOverlay = function() {
@@ -216,6 +251,15 @@ window.renderPanes = function() {
     const grid = document.getElementById('workspace-grid');
     if (!grid) return;
 
+    const bounds = window.getDesktopBounds();
+    const previousBounds = (state.desktopSize && state.desktopSize.width && state.desktopSize.height) ? state.desktopSize : null;
+    if (previousBounds && (previousBounds.width !== bounds.width || previousBounds.height !== bounds.height)) {
+        window.scalePaneLayoutsToDesktop(previousBounds, bounds);
+    }
+    if (!previousBounds || previousBounds.width !== bounds.width || previousBounds.height !== bounds.height) {
+        window.persistDesktopSize(bounds);
+    }
+
     grid.className = 'workspace-desktop';
     grid.innerHTML = '';
 
@@ -239,23 +283,23 @@ window.renderPanes = function() {
         paneEl.style.zIndex = layout.z || index + 1;
 
         const applyLayout = () => {
-            const bounds = window.getDesktopBounds();
+            const desktopBounds = bounds;
             let width = layout.width || MIN_WINDOW_WIDTH;
             let height = layout.height || MIN_WINDOW_HEIGHT;
             let x = layout.x || DESKTOP_PADDING;
             let y = layout.y || DESKTOP_PADDING;
 
             if (layout.maximized) {
-                width = Math.max(bounds.width - DESKTOP_PADDING * 2, MIN_WINDOW_WIDTH);
-                height = Math.max(bounds.height - DESKTOP_PADDING * 2, MIN_WINDOW_HEIGHT);
+                width = Math.max(desktopBounds.width - DESKTOP_PADDING * 2, MIN_WINDOW_WIDTH);
+                height = Math.max(desktopBounds.height - DESKTOP_PADDING * 2, MIN_WINDOW_HEIGHT);
                 x = DESKTOP_PADDING;
                 y = DESKTOP_PADDING;
             }
 
-            width = Math.max(MIN_WINDOW_WIDTH, Math.min(width, bounds.width - DESKTOP_PADDING));
-            height = Math.max(layout.minimized ? 36 : MIN_WINDOW_HEIGHT, Math.min(height, bounds.height - DESKTOP_PADDING));
-            x = Math.max(0, Math.min(x, Math.max(0, bounds.width - width - DESKTOP_PADDING)));
-            y = Math.max(0, Math.min(y, Math.max(0, bounds.height - (layout.minimized ? 36 : height) - DESKTOP_PADDING)));
+            width = Math.max(MIN_WINDOW_WIDTH, Math.min(width, desktopBounds.width - DESKTOP_PADDING));
+            height = Math.max(layout.minimized ? 36 : MIN_WINDOW_HEIGHT, Math.min(height, desktopBounds.height - DESKTOP_PADDING));
+            x = Math.max(0, Math.min(x, Math.max(0, desktopBounds.width - width - DESKTOP_PADDING)));
+            y = Math.max(0, Math.min(y, Math.max(0, desktopBounds.height - (layout.minimized ? 36 : height) - DESKTOP_PADDING)));
 
             paneEl.style.width = `${width}px`;
             paneEl.style.height = layout.minimized ? '36px' : `${height}px`;

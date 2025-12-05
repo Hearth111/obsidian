@@ -15,6 +15,7 @@ window.CONFIG = {
     CLIPBOARD_KEY: 'obsidian_v35_clipboard',
     PANES_KEY: 'obsidian_v35_panes',
     PANE_LAYOUTS_KEY: 'obsidian_v35_pane_layouts',
+    DESKTOP_SIZE_KEY: 'obsidian_v35_desktop_size',
     LAYOUT_TEMPLATES_KEY: 'obsidian_v35_layout_templates'
 };
 
@@ -116,6 +117,7 @@ window.state = {
     panes: [], // { id, title, type: 'editor'|'preview'|'canvas' }
     paneSizes: [],
     paneLayouts: [], // { x, y, width, height, z, minimized, maximized, restore? }
+    desktopSize: null,
     activePaneIndex: -1,
     zCounter: 10,
     headingCollapse: {},
