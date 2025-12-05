@@ -104,6 +104,17 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function setupEventListeners() {
+    setupEditorEventDelegation();
+    setupSidebarAndToolbarHandlers();
+    setupWorkspaceDropHandlers();
+    setupNavigationHandlers();
+    setupFormattingMenuHandlers();
+    setupModeAndLayoutHandlers();
+    setupTimerAndOverlayHandlers();
+    setupSettingsHandlers();
+}
+
+function setupEditorEventDelegation() {
     // Global delegation for editor events since editors are dynamic
     document.addEventListener('input', (e) => {
         if (e.target.classList.contains('pane-editor')) {
@@ -133,7 +144,9 @@ function setupEventListeners() {
             window.handleEditorKeydown(e);
         }
     });
-    
+}
+
+function setupSidebarAndToolbarHandlers() {
     els.searchBox.addEventListener('input', window.handleSearch);
     document.getElementById('btn-new-note').onclick = () => window.createNewNote();
     document.getElementById('btn-today').onclick = window.openToday;
@@ -142,7 +155,9 @@ function setupEventListeners() {
     document.getElementById('file-input').onchange = window.importData;
     document.getElementById('sidebar').oncontextmenu = (e) => window.showContextMenu(e, {isRoot:true});
     if (els.sidebarToggle) els.sidebarToggle.onclick = window.toggleSidebar;
-    
+}
+
+function setupWorkspaceDropHandlers() {
     els.sidebarContent.ondragover = (e) => e.preventDefault();
     els.sidebarContent.ondrop = window.handleDropRoot;
 
@@ -161,12 +176,16 @@ function setupEventListeners() {
             state.draggedItem = null;
         }
     };
+}
 
+function setupNavigationHandlers() {
     els.title.onchange = () => window.performRename(state.currentTitle, els.title.value.trim());
     document.getElementById('btn-back').onclick = window.goBack;
     document.getElementById('btn-fwd').onclick = window.goForward;
     document.getElementById('btn-settings').onclick = window.openSettings;
-    
+}
+
+function setupFormattingMenuHandlers() {
     document.getElementById('btn-table').onclick = window.insertTable;
     document.getElementById('btn-template').onclick = (e) => {
         e.stopPropagation();
@@ -184,14 +203,17 @@ function setupEventListeners() {
     document.getElementById('btn-download').onclick = window.downloadNote;
     document.getElementById('btn-privacy').onclick = window.togglePrivacy;
     document.getElementById('btn-dashboard').onclick = window.toggleDashboard;
-    
+}
+
+function setupModeAndLayoutHandlers() {
     document.getElementById('btn-split-add').onclick = window.toggleDualView;
     document.getElementById('btn-mode').onclick = window.togglePreviewMode;
 
-    document.querySelectorAll('.settings-tab').forEach(tab => {
-        tab.onclick = () => window.switchSettingsPanel(tab.dataset.panel);
-    });
+    const layoutSelect = document.getElementById('layout-template-active');
+    if (layoutSelect) layoutSelect.onchange = (e) => window.setActiveLayoutTemplate(parseInt(e.target.value, 10) || 0, { persist: true });
+}
 
+function setupTimerAndOverlayHandlers() {
     els.timer.onclick = () => window.showTimerQuickMenu(els.timer);
 
     document.onclick = (e) => {
@@ -208,12 +230,15 @@ function setupEventListeners() {
     document.onkeydown = window.handleGlobalKeys;
     els.switcherInput.oninput = window.updateSwitcher;
     els.commandInput.oninput = window.updateCommandPalette;
+}
+
+function setupSettingsHandlers() {
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.onclick = () => window.switchSettingsPanel(tab.dataset.panel);
+    });
 
     document.getElementById('btn-save-settings').onclick = window.saveSettings;
     document.getElementById('btn-reset-settings').onclick = window.resetSettings;
-
-    const layoutSelect = document.getElementById('layout-template-active');
-    if (layoutSelect) layoutSelect.onchange = (e) => window.setActiveLayoutTemplate(parseInt(e.target.value, 10) || 0, { persist: true });
 
     const builderOverlay = document.getElementById('layout-builder-overlay');
     if (builderOverlay) {
