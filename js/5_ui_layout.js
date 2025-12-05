@@ -407,28 +407,32 @@ window.renderPanes = function() {
             window.decoratePreview(previewDiv, pane.title);
             content.appendChild(previewDiv);
         } else if (pane.type === 'canvas') {
-            // Setup canvas container
+            // Setup canvas container (scoped per pane to avoid ID collisions)
             const canvasArea = document.createElement('div');
-            canvasArea.id = 'canvas-area'; // ID must be active for canvas logic (limitation of current 3_canvas.js)
-            canvasArea.className = 'pane-canvas';
+            canvasArea.className = 'pane-canvas canvas-area';
+            canvasArea.dataset.paneIndex = index;
+            canvasArea.dataset.title = pane.title;
+            if (index === state.activePaneIndex) canvasArea.dataset.activeCanvas = 'true';
+
             if (index === state.activePaneIndex) {
                 canvasArea.innerHTML = `
-                    <div id="canvas-layer">
-                        <svg id="canvas-svg"></svg>
-                        <div id="canvas-nodes"></div>
+                    <div class="canvas-layer">
+                        <svg class="canvas-svg"></svg>
+                        <div class="canvas-nodes"></div>
                     </div>
-                    <div id="canvas-controls" class="pane-canvas-controls">
-                        <button class="btn btn-active" id="cv-mode-pointer" onclick="window.toggleCanvasMode('edit')">❖</button>
-                        <button class="btn" id="cv-mode-pan" onclick="window.toggleCanvasMode('pan')">✋</button>
+                    <div class="pane-canvas-controls">
+                        <button class="btn btn-active cv-mode-pointer" onclick="window.toggleCanvasMode('edit')">❖</button>
+                        <button class="btn cv-mode-pan" onclick="window.toggleCanvasMode('pan')">✋</button>
                         <span style="border-right:1px solid #666; margin:0 5px;"></span>
                         <button class="btn" onclick="window.addCanvasGroup()">🔲</button>
                         <button class="btn" onclick="window.zoomCanvas(0.1)">＋</button>
                         <button class="btn" onclick="window.zoomCanvas(-0.1)">－</button>
                         <button class="btn" onclick="window.resetCanvas()">⟲</button>
-                        <span id="canvas-info" style="color:#666; font-size:0.8em; align-self:center; margin-left:5px;"></span>
+                        <span class="canvas-info" style="color:#666; font-size:0.8em; align-self:center; margin-left:5px;"></span>
                     </div>
                 `;
                 setTimeout(() => {
+                    window.bindCanvasArea(canvasArea);
                     window.renderCanvas();
                 }, 0);
             } else {

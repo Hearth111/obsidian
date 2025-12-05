@@ -49,6 +49,45 @@ function snapToGrid(value, grid = 1, tolerance = 4) {
     return value;
 }
 
+// 現在アクティブなキャンバス要素と関連DOMを取得
+function getActiveCanvasArea() {
+    const activeIndex = state.activePaneIndex;
+    if (typeof activeIndex !== 'number') return document.querySelector('.canvas-area[data-active-canvas="true"]');
+    return document.querySelector(`.canvas-area[data-pane-index="${activeIndex}"][data-active-canvas="true"]`) ||
+        document.querySelector('.canvas-area[data-active-canvas="true"]');
+}
+
+function getCanvasDomRefs() {
+    const area = getActiveCanvasArea();
+    if (!area) return {};
+    return {
+        area,
+        layer: area.querySelector('.canvas-layer'),
+        nodesEl: area.querySelector('.canvas-nodes'),
+        svgEl: area.querySelector('.canvas-svg'),
+        info: area.querySelector('.canvas-info'),
+        pointerBtn: area.querySelector('.cv-mode-pointer'),
+        panBtn: area.querySelector('.cv-mode-pan'),
+    };
+}
+
+// キャンバス領域へのイベントバインド（アクティブ時のみ）
+window.bindCanvasArea = function(area) {
+    if (!area || area.__canvasBound) return;
+
+    // ドラッグ終了用のグローバルリスナーを一度だけセット
+    if (!window.__canvasGlobalBound) {
+        document.addEventListener('mousemove', window.handleCanvasMouseMove);
+        document.addEventListener('mouseup', window.handleCanvasMouseUp);
+        window.__canvasGlobalBound = true;
+    }
+
+    area.addEventListener('mousedown', window.handleCanvasMouseDown);
+    area.addEventListener('wheel', window.handleCanvasWheel, { passive: false });
+    area.addEventListener('dblclick', window.handleCanvasDblClick);
+    area.__canvasBound = true;
+};
+
 // --- Main Functions ---
 
 window.createNewCanvas = function() {
@@ -94,13 +133,9 @@ window.saveCanvasData = function() {
 // --- Rendering ---
 
 window.renderCanvas = function() {
-    const layer = document.getElementById('canvas-layer');
-    const nodesEl = document.getElementById('canvas-nodes');
-    const svgEl = document.getElementById('canvas-svg');
-    const area = document.getElementById('canvas-area');
-    const info = document.getElementById('canvas-info');
+    const { layer, nodesEl, svgEl, area, info } = getCanvasDomRefs();
 
-    if(!layer || !area) return;
+    if(!layer || !area || !nodesEl || !svgEl) return;
 
     const { x, y, zoom } = state.canvasData;
     
@@ -334,7 +369,8 @@ window.onNodeMouseDown = function(e, nodeId) {
     if (state.canvasMode === 'pan') {
         state.actionState = 'drag_canvas';
         state.dragStart = { x: e.clientX, y: e.clientY };
-        document.getElementById('canvas-area').style.cursor = 'grabbing';
+        const { area } = getCanvasDomRefs();
+        if (area) area.style.cursor = 'grabbing';
         return;
     }
 
@@ -368,7 +404,8 @@ window.handleCanvasMouseDown = function(e) {
 
     state.actionState = 'drag_canvas';
     state.dragStart = { x: e.clientX, y: e.clientY };
-    document.getElementById('canvas-area').style.cursor = 'grabbing';
+    const { area } = getCanvasDomRefs();
+    if (area) area.style.cursor = 'grabbing';
 };
 
 window.handleCanvasMouseMove = function(e) {
@@ -409,9 +446,11 @@ window.handleCanvasMouseUp = function(e) {
     state.actionState = null;
     state.activeSubjectId = null;
 
-    const area = document.getElementById('canvas-area');
-    if (state.canvasMode === 'pan') area.style.cursor = 'grab';
-    else area.style.cursor = 'default';
+    const { area } = getCanvasDomRefs();
+    if (area) {
+        if (state.canvasMode === 'pan') area.style.cursor = 'grab';
+        else area.style.cursor = 'default';
+    }
 };
 
 window.executeConnection = function(sourceId, targetId, fromAnchor, toAnchor) {
@@ -464,9 +503,11 @@ window.resetCanvas = function() {
 // ダブルクリックで作成メニューを開く
 window.handleCanvasDblClick = function(e) {
     if (e.target.closest('.canvas-node')) return;
-    
+
     // 座標計算
-    const area = document.getElementById('canvas-area');
+    const { area } = getCanvasDomRefs();
+    if (!area) return;
+
     const rect = area.getBoundingClientRect();
     const canvasX = (e.clientX - rect.left - state.canvasData.x) / state.canvasData.zoom;
     const canvasY = (e.clientY - rect.top - state.canvasData.y) / state.canvasData.zoom;
@@ -533,18 +574,17 @@ window.toggleCanvasMode = function(mode) {
 };
 
 window.updateCanvasModeUI = function() {
-    const ptr = document.getElementById('cv-mode-pointer');
-    const pan = document.getElementById('cv-mode-pan');
-    const area = document.getElementById('canvas-area');
+    const { pointerBtn, panBtn, area } = getCanvasDomRefs();
+    if (!area) return;
 
-    [ptr, pan].forEach(b => b && b.classList.remove('btn-active'));
+    [pointerBtn, panBtn].forEach(b => b && b.classList.remove('btn-active'));
     area.classList.remove('mode-pan');
 
     if (state.canvasMode === 'pan') {
-        if(pan) pan.classList.add('btn-active');
+        if(panBtn) panBtn.classList.add('btn-active');
         area.classList.add('mode-pan');
     } else {
-        if(ptr) ptr.classList.add('btn-active');
+        if(pointerBtn) pointerBtn.classList.add('btn-active');
     }
 };
 

@@ -304,7 +304,7 @@ body.privacy-active .editor-header input { filter: blur(4px); }
 }
 
 /* --- Canvas Nodes & Elements --- */
-#canvas-layer { position: absolute; top: 0; left: 0; transform-origin: 0 0; width: 100%; height: 100%; }
+.canvas-layer { position: absolute; top: 0; left: 0; transform-origin: 0 0; width: 100%; height: 100%; }
 .pane-canvas { background-image: radial-gradient(#444 1px, transparent 1px); background-size: 20px 20px; }
 
 .canvas-node { 
@@ -395,8 +395,8 @@ body.privacy-active .editor-header input { filter: blur(4px); }
 .anchor-left { left: -8px; top: 50%; --anchor-transform: translate(0, -50%); }
 
 /* Connecting Mode UI */
-#canvas-area.connecting-mode .canvas-node { cursor: crosshair !important; border-color: var(--accent-color) !important; }
-#canvas-area.connecting-mode { cursor: crosshair; }
+.canvas-area.connecting-mode .canvas-node { cursor: crosshair !important; border-color: var(--accent-color) !important; }
+.canvas-area.connecting-mode { cursor: crosshair; }
 
 /* Status Bar */
 #status-bar { height: 24px; background: var(--sidebar-bg); border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; font-size: 0.75em; color: #888; flex-shrink: 0; }
