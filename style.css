@@ -496,6 +496,28 @@ blockquote { margin: 10px 0; padding: 10px 15px; border-left: 4px solid #555; ba
 #layout-menu .layout-menu-item:hover { background: #343434; color: #fff; letter-spacing: 0.01em; }
 #layout-menu .layout-menu-meta { color: #999; font-size: 0.8em; }
 
+/* Timer quick menu */
+#timer-menu { position: absolute; display: none; min-width: 200px; background: var(--menu-bg); border: 1px solid #444; border-radius: 6px; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); z-index: 4000; overflow: hidden; font-size: 0.92em; }
+#timer-menu .timer-menu-item { padding: 10px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+#timer-menu .timer-menu-item:last-child { border-bottom: none; }
+#timer-menu .timer-menu-item:hover { background: #343434; color: #fff; letter-spacing: 0.01em; }
+#timer-menu .timer-menu-meta { color: #999; font-size: 0.85em; }
+
+/* Timer pane */
+.timer-pane { display: flex; flex-direction: column; gap: 10px; color: var(--text-color); }
+.timer-mode-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+.timer-mode-btn { background: #2f2f2f; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; cursor: pointer; font-weight: 700; }
+.timer-mode-btn.active { background: var(--accent-color); border-color: var(--accent-color); color: #fff; box-shadow: 0 4px 14px rgba(127,109,242,0.35); }
+.timer-face { text-align: center; font-size: 2.4em; font-weight: 700; letter-spacing: 0.04em; color: #fff; }
+.timer-subline { text-align: center; color: #aaa; font-size: 0.95em; }
+.timer-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.timer-controls .btn { min-width: 110px; }
+.timer-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.timer-input { display: flex; gap: 6px; align-items: center; background: #242424; padding: 8px 10px; border: 1px solid #333; border-radius: 6px; }
+.timer-input label { color: #ccc; font-size: 0.9em; }
+.timer-input input { width: 70px; background: #111; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 6px 8px; }
+.timer-hint { color: #888; font-size: 0.9em; text-align: center; }
+
 /* Layout Builder */
 #layout-builder-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 4000; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
 #layout-builder-modal { width: 1880px; max-width: 98%; background: #1f1f1f; border: 1px solid #444; border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 16px; padding: 18px; color: #eee; }

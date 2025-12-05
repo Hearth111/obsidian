@@ -355,7 +355,7 @@ window.renderPanes = function() {
         controls.appendChild(pinBtn);
 
         // Mode toggle button
-        if (pane.type !== 'canvas' && pane.type !== 'dashboard') {
+        if (!['canvas', 'dashboard', 'timer'].includes(pane.type)) {
             const modeBtn = document.createElement('button');
             modeBtn.className = 'pane-btn' + (pane.type === 'preview' ? ' btn-active' : '');
             modeBtn.innerHTML = pane.type === 'editor' ? '👁' : '✎';
@@ -439,6 +439,102 @@ window.renderPanes = function() {
                 canvasArea.innerHTML = `<div style="padding:20px; color:#666;">(Canvas: Click to activate)</div>`;
             }
             content.appendChild(canvasArea);
+        } else if (pane.type === 'timer') {
+            const timerWrap = document.createElement('div');
+            timerWrap.className = 'timer-pane';
+
+            const modeBar = document.createElement('div');
+            modeBar.className = 'timer-mode-bar';
+            const modes = [
+                { id: 'pomodoro', label: '🍅 ポモドーロ' },
+                { id: 'stopwatch', label: '⏱️ ストップウォッチ' },
+                { id: 'countdown', label: '⏳ カウントダウン' },
+                { id: 'clock', label: '🕒 時計' }
+            ];
+            modes.forEach((m) => {
+                const btn = document.createElement('button');
+                btn.className = 'timer-mode-btn';
+                btn.dataset.mode = m.id;
+                btn.textContent = m.label;
+                btn.onclick = (e) => { e.stopPropagation(); window.setTimerMode(m.id); };
+                modeBar.appendChild(btn);
+            });
+            timerWrap.appendChild(modeBar);
+
+            const face = document.createElement('div');
+            face.className = 'timer-face';
+            face.id = 'timer-pane-display';
+            timerWrap.appendChild(face);
+
+            const subline = document.createElement('div');
+            subline.className = 'timer-subline';
+            subline.id = 'timer-pane-subline';
+            timerWrap.appendChild(subline);
+
+            const controls = document.createElement('div');
+            controls.className = 'timer-controls';
+            const startBtn = document.createElement('button');
+            startBtn.className = 'btn btn-primary';
+            startBtn.id = 'timer-btn-start';
+            startBtn.textContent = '▶️ スタート';
+            startBtn.onclick = (e) => { e.stopPropagation(); window.startTimer(); };
+            controls.appendChild(startBtn);
+
+            const pauseBtn = document.createElement('button');
+            pauseBtn.className = 'btn';
+            pauseBtn.id = 'timer-btn-pause';
+            pauseBtn.textContent = '⏸ 一時停止';
+            pauseBtn.onclick = (e) => { e.stopPropagation(); window.pauseTimer(); };
+            controls.appendChild(pauseBtn);
+
+            const resetBtn = document.createElement('button');
+            resetBtn.className = 'btn';
+            resetBtn.id = 'timer-btn-reset';
+            resetBtn.textContent = '🔄 リセット';
+            resetBtn.onclick = (e) => { e.stopPropagation(); window.resetTimer(); };
+            controls.appendChild(resetBtn);
+            timerWrap.appendChild(controls);
+
+            const inputs = document.createElement('div');
+            inputs.className = 'timer-inputs';
+
+            const pomoInput = document.createElement('div');
+            pomoInput.className = 'timer-input';
+            const pomoLabel = document.createElement('label');
+            pomoLabel.textContent = 'ポモドーロ (分)';
+            const pomoField = document.createElement('input');
+            pomoField.type = 'number';
+            pomoField.min = '1';
+            pomoField.step = '1';
+            pomoField.id = 'timer-input-pomodoro';
+            pomoField.onchange = (e) => { e.stopPropagation(); window.updateTimerDuration('pomodoro', e.target.value); };
+            pomoInput.appendChild(pomoLabel);
+            pomoInput.appendChild(pomoField);
+            inputs.appendChild(pomoInput);
+
+            const cdInput = document.createElement('div');
+            cdInput.className = 'timer-input';
+            const cdLabel = document.createElement('label');
+            cdLabel.textContent = 'カウントダウン (分)';
+            const cdField = document.createElement('input');
+            cdField.type = 'number';
+            cdField.min = '1';
+            cdField.step = '1';
+            cdField.id = 'timer-input-countdown';
+            cdField.onchange = (e) => { e.stopPropagation(); window.updateTimerDuration('countdown', e.target.value); };
+            cdInput.appendChild(cdLabel);
+            cdInput.appendChild(cdField);
+            inputs.appendChild(cdInput);
+
+            timerWrap.appendChild(inputs);
+
+            const hint = document.createElement('div');
+            hint.className = 'timer-hint';
+            hint.id = 'timer-pane-hint';
+            timerWrap.appendChild(hint);
+
+            content.appendChild(timerWrap);
+            window.updateTimerUI();
         }
 
         paneEl.appendChild(content);
@@ -749,7 +845,7 @@ window.openNoteInNewPane = function(path) {
 window.togglePaneMode = function(index) {
     const pane = state.panes[index];
     if (!pane) return;
-    if (pane.type === 'canvas' || pane.type === 'dashboard') return; // Non-note panes have no toggle
+    if (pane.type === 'canvas' || pane.type === 'dashboard' || pane.type === 'timer') return; // Non-note panes have no toggle
     pane.type = pane.type === 'editor' ? 'preview' : 'editor';
     window.renderPanes();
 };
@@ -770,10 +866,10 @@ window.updateModeToggleButton = function() {
     const pane = state.panes[state.activePaneIndex];
     if (!btn) return;
 
-    if (!pane || pane.type === 'canvas' || pane.type === 'dashboard') {
+    if (!pane || pane.type === 'canvas' || pane.type === 'dashboard' || pane.type === 'timer') {
         btn.textContent = '👁 プレビュー';
         btn.classList.remove('btn-active');
-        btn.disabled = !pane || pane.type === 'canvas' || pane.type === 'dashboard';
+        btn.disabled = !pane || pane.type === 'canvas' || pane.type === 'dashboard' || pane.type === 'timer';
         return;
     }
 
@@ -792,7 +888,7 @@ window.updateDualViewButton = function() {
     const active = state.panes[state.activePaneIndex];
     if (!btn) return;
 
-    btn.disabled = !active || (active.type === 'canvas' || active.type === 'dashboard');
+    btn.disabled = !active || (active.type === 'canvas' || active.type === 'dashboard' || active.type === 'timer');
     if (btn.disabled) {
         btn.classList.remove('btn-active');
         return;
@@ -1131,6 +1227,43 @@ window.hideLayoutMenu = function() {
     if (menu) menu.style.display = 'none';
 };
 
+// --- Timer Quick Menu ---
+window.showTimerQuickMenu = function(anchor = document.getElementById('timer-display')) {
+    const menu = document.getElementById('timer-menu');
+    if (!menu || !anchor) return;
+
+    const modes = [
+        { id: 'pomodoro', label: '🍅 ポモドーロ', meta: `${Math.round(state.pomodoroSeconds / 60)}分` },
+        { id: 'stopwatch', label: '⏱️ ストップウォッチ', meta: '経過時間を測定' },
+        { id: 'countdown', label: '⏳ カウントダウン', meta: `${Math.round(state.countdownSeconds / 60)}分` },
+        { id: 'clock', label: '🕒 時計', meta: '現在時刻を表示' }
+    ];
+
+    menu.innerHTML = '';
+    modes.forEach((m) => {
+        const item = document.createElement('div');
+        item.className = 'timer-menu-item';
+        item.innerHTML = `<span>${m.label}</span><span class="timer-menu-meta">${m.meta}</span>`;
+        item.onclick = (e) => {
+            e.stopPropagation();
+            window.openTimerPane(m.id);
+            window.hideTimerMenu();
+        };
+        menu.appendChild(item);
+    });
+
+    menu.style.display = 'block';
+    const rect = anchor.getBoundingClientRect();
+    const preferredLeft = rect.right - menu.offsetWidth;
+    menu.style.top = `${rect.bottom + 6}px`;
+    menu.style.left = `${Math.max(12, preferredLeft)}px`;
+};
+
+window.hideTimerMenu = function() {
+    const menu = document.getElementById('timer-menu');
+    if (menu) menu.style.display = 'none';
+};
+
 // --- Layout Builder ---
 const BUILDER_MIN_COLUMN = 8;
 window.layoutBuilderState = { layout: { type: 'leaf', size: 100 }, name: '', editIndex: -1 };
@@ -1461,4 +1594,187 @@ window.resetSettings = function() {
         window.writeJson(window.CONFIG.SETTINGS_KEY, state.settings);
         window.persistLayoutTemplates();
     }
-}
+};
+
+// --- Timer Pane & Controls ---
+window.formatTimerTime = function(totalSeconds) {
+    const sec = Math.max(0, Math.floor(totalSeconds || 0));
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+};
+
+window.updateTimerUI = function() {
+    const icons = { pomodoro: '🍅', stopwatch: '⏱️', countdown: '⏳', clock: '🕒' };
+    const labels = { pomodoro: 'ポモドーロ', stopwatch: 'ストップウォッチ', countdown: 'カウントダウン', clock: '時計' };
+
+    const now = new Date();
+    const clockText = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    const timerValue = state.timerMode === 'clock' ? clockText : window.formatTimerTime(state.timerTime);
+    const statusIcon = icons[state.timerMode] || '⏲️';
+
+    const timerDisplay = document.getElementById('timer-display');
+    if (timerDisplay) timerDisplay.textContent = `${statusIcon} ${timerValue}`;
+
+    const paneDisplay = document.getElementById('timer-pane-display');
+    if (paneDisplay) paneDisplay.textContent = timerValue;
+
+    const subline = document.getElementById('timer-pane-subline');
+    if (subline) {
+        const runningText = state.timerMode === 'clock' ? '現在時刻' : (state.isTimerRunning ? '計測中' : '待機中');
+        subline.textContent = `${labels[state.timerMode] || 'タイマー'} / ${runningText}`;
+    }
+
+    const hint = document.getElementById('timer-pane-hint');
+    if (hint) hint.textContent = 'クイックメニューまたは上部ボタンでモードを切替できます';
+
+    const startBtn = document.getElementById('timer-btn-start');
+    if (startBtn) {
+        startBtn.disabled = state.isTimerRunning || state.timerMode === 'clock';
+        startBtn.textContent = state.timerMode === 'clock' ? '▶️ 自動更新' : (state.isTimerRunning ? '▶️ 計測中' : '▶️ スタート');
+    }
+
+    const pauseBtn = document.getElementById('timer-btn-pause');
+    if (pauseBtn) {
+        pauseBtn.disabled = state.timerMode === 'clock' || !state.isTimerRunning;
+    }
+
+    const resetBtn = document.getElementById('timer-btn-reset');
+    if (resetBtn) {
+        resetBtn.disabled = state.timerMode === 'clock';
+    }
+
+    const pomoInput = document.getElementById('timer-input-pomodoro');
+    if (pomoInput) pomoInput.value = Math.max(1, Math.round(state.pomodoroSeconds / 60));
+
+    const cdInput = document.getElementById('timer-input-countdown');
+    if (cdInput) cdInput.value = Math.max(1, Math.round(state.countdownSeconds / 60));
+
+    document.querySelectorAll('.timer-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === state.timerMode);
+    });
+};
+
+window.restartTimerInterval = function() {
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    const needsTick = state.isTimerRunning || state.timerMode === 'clock';
+    if (needsTick) state.timerInterval = setInterval(window.tickTimer, 1000);
+};
+
+window.tickTimer = function() {
+    const now = Date.now();
+    const delta = state.timerLastTick ? Math.max(1, Math.floor((now - state.timerLastTick) / 1000)) : 1;
+    state.timerLastTick = now;
+
+    if (state.timerMode === 'clock') {
+        window.updateTimerUI();
+        return;
+    }
+    if (!state.isTimerRunning) return;
+
+    if (state.timerMode === 'pomodoro' || state.timerMode === 'countdown') {
+        state.timerTime = Math.max(0, (state.timerTime || 0) - delta);
+        if (state.timerTime === 0) {
+            state.isTimerRunning = false;
+            state.timerLastTick = null;
+            window.restartTimerInterval();
+        }
+    } else if (state.timerMode === 'stopwatch') {
+        state.timerTime = (state.timerTime || 0) + delta;
+        state.stopwatchSeconds = state.timerTime;
+    }
+
+    window.updateTimerUI();
+};
+
+window.startTimer = function() {
+    state.isTimerRunning = true;
+    state.timerLastTick = Date.now();
+    window.restartTimerInterval();
+    window.updateTimerUI();
+};
+
+window.pauseTimer = function() {
+    if (state.timerMode === 'clock') return;
+    state.isTimerRunning = false;
+    state.timerLastTick = null;
+    window.restartTimerInterval();
+    window.updateTimerUI();
+};
+
+window.resetTimer = function() {
+    if (state.timerMode === 'pomodoro') {
+        state.timerTime = state.pomodoroSeconds || 25 * 60;
+    } else if (state.timerMode === 'countdown') {
+        state.timerTime = state.countdownSeconds || 10 * 60;
+    } else if (state.timerMode === 'stopwatch') {
+        state.timerTime = 0;
+        state.stopwatchSeconds = 0;
+    }
+    state.isTimerRunning = state.timerMode === 'clock';
+    state.timerLastTick = null;
+    window.restartTimerInterval();
+    window.updateTimerUI();
+};
+
+window.updateTimerDuration = function(mode, value) {
+    const minutes = Math.max(1, parseInt(value, 10) || 0);
+    const seconds = minutes * 60;
+    if (mode === 'pomodoro') {
+        state.pomodoroSeconds = seconds;
+        if (state.timerMode === 'pomodoro' && !state.isTimerRunning) state.timerTime = seconds;
+    } else if (mode === 'countdown') {
+        state.countdownSeconds = seconds;
+        if (state.timerMode === 'countdown' && !state.isTimerRunning) state.timerTime = seconds;
+    }
+    window.updateTimerUI();
+};
+
+window.setTimerMode = function(mode) {
+    if (!['pomodoro', 'stopwatch', 'countdown', 'clock'].includes(mode)) return;
+
+    if (state.timerMode === 'stopwatch') state.stopwatchSeconds = state.timerTime;
+
+    state.timerMode = mode;
+    state.timerLastTick = null;
+    state.isTimerRunning = mode === 'clock' ? true : false;
+
+    if (mode === 'pomodoro') state.timerTime = state.pomodoroSeconds || 25 * 60;
+    if (mode === 'countdown') state.timerTime = state.countdownSeconds || 10 * 60;
+    if (mode === 'stopwatch') state.timerTime = state.stopwatchSeconds || 0;
+    if (mode === 'clock') state.timerTime = 0;
+
+    window.restartTimerInterval();
+    window.updateTimerUI();
+};
+
+window.findTimerPaneIndex = function() {
+    return state.panes.findIndex(p => p.type === 'timer');
+};
+
+window.openTimerPane = function(mode = null) {
+    if (mode) window.setTimerMode(mode);
+    const existing = window.findTimerPaneIndex();
+    if (existing !== -1) {
+        window.setActivePane(existing);
+        window.bringPaneToFront(existing);
+        window.renderPanes();
+        return;
+    }
+    if (state.panes.length >= MAX_PANES) {
+        alert(`最大${MAX_PANES}画面までです`);
+        return;
+    }
+    const newPane = { id: state.panes.length, title: 'タイマー', type: 'timer', isPrivacy: false };
+    state.panes.push(newPane);
+    state.paneSizes.push(1);
+    state.paneLayouts.push(window.createPaneLayout(state.panes.length - 1));
+    state.activePaneIndex = state.panes.length - 1;
+    window.persistPaneSizes();
+    window.persistPaneLayouts();
+    window.renderPanes();
+};
+
+window.toggleTimer = function(mode = null) {
+    window.openTimerPane(mode);
+};
