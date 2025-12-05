@@ -81,6 +81,7 @@ window.initAppData = function () {
     window.renderTabBar();
     window.applySidebarState();
     window.updateLayoutButtonLabel();
+    window.updateTimerUI();
 
     // 5. 履歴・イベント設定・その他
     window.persistTabs();
@@ -191,7 +192,7 @@ function setupEventListeners() {
         tab.onclick = () => window.switchSettingsPanel(tab.dataset.panel);
     });
 
-    els.timer.onclick = window.toggleTimer;
+    els.timer.onclick = () => window.showTimerQuickMenu(els.timer);
 
     document.onclick = (e) => {
         if(e.target === els.switcherOverlay) window.closeSwitcher();
@@ -201,6 +202,7 @@ function setupEventListeners() {
         document.getElementById('context-menu').style.display = 'none';
         document.getElementById('template-menu').style.display = 'none';
         window.hideLayoutMenu();
+        window.hideTimerMenu();
         if (!e.target.closest('#format-menu')) window.hideFormatMenu();
     };
     document.onkeydown = window.handleGlobalKeys;
