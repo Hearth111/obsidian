@@ -71,6 +71,7 @@ window.initAppData = function () {
     state.panes = [];
     state.paneSizes = window.readJson(window.CONFIG.PANES_KEY, [1]);
     state.paneLayouts = window.readJson(window.CONFIG.PANE_LAYOUTS_KEY, []);
+    state.desktopSize = window.readJson(window.CONFIG.DESKTOP_SIZE_KEY, null);
     state.zCounter = state.paneLayouts.reduce((max, l) => Math.max(max, (l && l.z) || 0), 10);
     state.activePaneIndex = -1;
 
