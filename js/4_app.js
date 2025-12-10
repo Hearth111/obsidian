@@ -125,6 +125,7 @@ function setupEditorEventDelegation() {
                 state.notes[pane.title] = e.target.value;
                 window.saveData();
                 window.updateStatusBar();
+                window.refreshPreviewForTitle(pane.title);
             }
         }
     });

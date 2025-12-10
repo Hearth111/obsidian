@@ -279,15 +279,33 @@ window.renderPanes = function() {
         window.persistDesktopSize(bounds);
     }
 
-    grid.className = isDesktop ? 'workspace-desktop' : 'workspace-classic';
-    grid.innerHTML = '';
-
     const activePane = isDesktop ? null : (state.panes[state.activePaneIndex] || state.panes[0]);
+    const activeTitle = activePane?.title;
+    const previewPair = !isDesktop && activeTitle
+        ? state.panes.find(p => p.title === activeTitle && p.type === 'preview' && state.panes.indexOf(p) !== state.activePaneIndex)
+        : null;
+    const editorPair = !isDesktop && activeTitle
+        ? state.panes.find(p => p.title === activeTitle && p.type === 'editor')
+        : null;
+    const isClassicDual = !!previewPair;
+
+    grid.className = (isDesktop ? 'workspace-desktop' : 'workspace-classic') + (isClassicDual ? ' classic-dual' : '');
+    grid.innerHTML = '';
     if (!isDesktop && activePane && state.activePaneIndex === -1) {
         state.activePaneIndex = state.panes.indexOf(activePane);
     }
 
-    const panesToRender = isDesktop ? state.panes : (activePane ? [activePane] : []);
+    let panesToRender = [];
+    if (isDesktop) {
+        panesToRender = state.panes;
+    } else if (activePane) {
+        if (previewPair) {
+            const editor = editorPair || activePane;
+            panesToRender = editor ? [editor, previewPair] : [previewPair];
+        } else {
+            panesToRender = [activePane];
+        }
+    }
 
     if (!panesToRender.length) {
         const empty = document.createElement('div');
@@ -762,6 +780,18 @@ window.toggleDualView = function() {
     window.persistPaneSizes();
     window.persistPaneLayouts();
     window.renderPanes();
+};
+
+window.refreshPreviewForTitle = function(title) {
+    if (!title) return;
+    state.panes.forEach((pane, idx) => {
+        if (pane.type !== 'preview' || pane.title !== title) return;
+        const previewEl = document.querySelector(`#pane-${idx} .pane-preview`);
+        if (!previewEl) return;
+        const noteContent = state.notes[title] || '';
+        previewEl.innerHTML = window.parseMarkdown(noteContent);
+        window.decoratePreview(previewEl, title);
+    });
 };
 
 window.splitPane = function() { window.toggleDualView(); };
