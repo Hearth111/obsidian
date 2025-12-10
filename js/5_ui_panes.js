@@ -247,42 +247,70 @@ window.applyPaneSizes = function() {
 
 window.startResizePane = function() { /* legacy no-op after desktop redesign */ };
 
+window.setViewMode = function(mode) {
+    if (!['desktop', 'classic'].includes(mode)) return;
+    state.viewMode = mode;
+    if (mode === 'classic') {
+        state.paneLayouts.forEach((layout) => { if (layout) layout.minimized = false; });
+    }
+    if (state.panes.length && (state.activePaneIndex < 0 || state.activePaneIndex >= state.panes.length)) {
+        state.activePaneIndex = 0;
+    }
+    localStorage.setItem(window.CONFIG.VIEW_MODE_KEY, mode);
+    window.renderPanes();
+};
+
+window.toggleViewMode = function() {
+    const next = state.viewMode === 'classic' ? 'desktop' : 'classic';
+    window.setViewMode(next);
+};
+
 window.renderPanes = function() {
     const grid = document.getElementById('workspace-grid');
     if (!grid) return;
 
-    const bounds = window.getDesktopBounds();
-    const previousBounds = (state.desktopSize && state.desktopSize.width && state.desktopSize.height) ? state.desktopSize : null;
-    if (previousBounds && (previousBounds.width !== bounds.width || previousBounds.height !== bounds.height)) {
+    const isDesktop = state.viewMode !== 'classic';
+    const bounds = isDesktop ? window.getDesktopBounds() : null;
+    const previousBounds = isDesktop && (state.desktopSize && state.desktopSize.width && state.desktopSize.height) ? state.desktopSize : null;
+    if (isDesktop && previousBounds && (previousBounds.width !== bounds.width || previousBounds.height !== bounds.height)) {
         window.scalePaneLayoutsToDesktop(previousBounds, bounds);
     }
-    if (!previousBounds || previousBounds.width !== bounds.width || previousBounds.height !== bounds.height) {
+    if (isDesktop && (!previousBounds || previousBounds.width !== bounds.width || previousBounds.height !== bounds.height)) {
         window.persistDesktopSize(bounds);
     }
 
-    grid.className = 'workspace-desktop';
+    grid.className = isDesktop ? 'workspace-desktop' : 'workspace-classic';
     grid.innerHTML = '';
 
-    if (!state.panes.length) {
+    const activePane = isDesktop ? null : (state.panes[state.activePaneIndex] || state.panes[0]);
+    if (!isDesktop && activePane && state.activePaneIndex === -1) {
+        state.activePaneIndex = state.panes.indexOf(activePane);
+    }
+
+    const panesToRender = isDesktop ? state.panes : (activePane ? [activePane] : []);
+
+    if (!panesToRender.length) {
         const empty = document.createElement('div');
         empty.className = 'desktop-placeholder';
-        empty.textContent = 'ノートを開いてデスクトップに追加します';
+        empty.textContent = isDesktop ? 'ノートを開いてデスクトップに追加します' : 'ノートを開くとここに表示されます';
         grid.appendChild(empty);
         window.updateModeToggleButton();
         window.updateDualViewButton();
         return;
     }
 
-    state.panes.forEach((pane, index) => {
-        const layout = window.ensurePaneLayout(index);
+    panesToRender.forEach((pane) => {
+        const paneIndex = state.panes.indexOf(pane);
+        const layout = isDesktop ? window.ensurePaneLayout(paneIndex) : null;
         if (typeof pane.isPrivacy === 'undefined') pane.isPrivacy = false;
         const paneEl = document.createElement('div');
-        paneEl.className = 'pane window-pane' + (index === state.activePaneIndex ? ' active-pane' : '') + (layout.minimized ? ' pane-minimized' : '') + (pane.isPrivacy ? ' pane-privacy' : '') + (layout.pinned ? ' pane-pinned' : '');
-        paneEl.id = `pane-${index}`;
-        paneEl.dataset.id = index;
-        paneEl.style.zIndex = layout.z || index + 1;
+        paneEl.className = 'pane ' + (isDesktop ? 'window-pane' : 'classic-pane') + (paneIndex === state.activePaneIndex ? ' active-pane' : '') + (layout && layout.minimized ? ' pane-minimized' : '') + (pane.isPrivacy ? ' pane-privacy' : '') + (layout && layout.pinned ? ' pane-pinned' : '');
+        paneEl.id = `pane-${paneIndex}`;
+        paneEl.dataset.id = paneIndex;
+        if (isDesktop && layout) paneEl.style.zIndex = layout.z || paneIndex + 1;
 
         const applyLayout = () => {
+            if (!isDesktop || !layout) return;
             const desktopBounds = bounds;
             let width = layout.width || MIN_WINDOW_WIDTH;
             let height = layout.height || MIN_WINDOW_HEIGHT;
@@ -310,49 +338,52 @@ window.renderPanes = function() {
         applyLayout();
 
         paneEl.onclick = () => {
-            window.bringPaneToFront(index);
-            if (state.activePaneIndex !== index) window.setActivePane(index);
+            if (isDesktop) window.bringPaneToFront(paneIndex);
+            if (state.activePaneIndex !== paneIndex) window.setActivePane(paneIndex);
         };
 
         // Header
         const header = document.createElement('div');
         header.className = 'pane-header';
         header.onpointerdown = (e) => {
+            if (!isDesktop) { window.setActivePane(paneIndex); return; }
             if (e.target.closest('.pane-controls')) return;
-            if (layout.pinned) return;
-            window.startWindowDrag(e, index);
+            if (layout && layout.pinned) return;
+            window.startWindowDrag(e, paneIndex);
         };
-        header.ondblclick = () => window.toggleMaximizePane(index);
+        header.ondblclick = () => { if (isDesktop) window.toggleMaximizePane(paneIndex); };
 
         const titleSpan = document.createElement('span');
         titleSpan.className = 'pane-title';
         titleSpan.textContent = pane.title;
         // Click title to open switcher for this pane
-        titleSpan.onclick = (e) => { e.stopPropagation(); window.setActivePane(index); window.openSwitcher((t) => window.loadNoteIntoPane(index, t)); };
+        titleSpan.onclick = (e) => { e.stopPropagation(); window.setActivePane(paneIndex); window.openSwitcher((t) => window.loadNoteIntoPane(paneIndex, t)); };
 
         const controls = document.createElement('div');
         controls.className = 'pane-controls';
 
-        const minimizeBtn = document.createElement('button');
-        minimizeBtn.className = 'pane-btn';
-        minimizeBtn.textContent = '—';
-        minimizeBtn.title = '縮小';
-        minimizeBtn.onclick = (e) => { e.stopPropagation(); window.toggleMinimizePane(index); };
-        controls.appendChild(minimizeBtn);
+        if (isDesktop && layout) {
+            const minimizeBtn = document.createElement('button');
+            minimizeBtn.className = 'pane-btn';
+            minimizeBtn.textContent = '—';
+            minimizeBtn.title = '縮小';
+            minimizeBtn.onclick = (e) => { e.stopPropagation(); window.toggleMinimizePane(paneIndex); };
+            controls.appendChild(minimizeBtn);
 
-        const maximizeBtn = document.createElement('button');
-        maximizeBtn.className = 'pane-btn';
-        maximizeBtn.textContent = layout.maximized ? '🗗' : '🗖';
-        maximizeBtn.title = layout.maximized ? '元に戻す' : '全画面';
-        maximizeBtn.onclick = (e) => { e.stopPropagation(); window.toggleMaximizePane(index); };
-        controls.appendChild(maximizeBtn);
+            const maximizeBtn = document.createElement('button');
+            maximizeBtn.className = 'pane-btn';
+            maximizeBtn.textContent = layout.maximized ? '🗗' : '🗖';
+            maximizeBtn.title = layout.maximized ? '元に戻す' : '全画面';
+            maximizeBtn.onclick = (e) => { e.stopPropagation(); window.toggleMaximizePane(paneIndex); };
+            controls.appendChild(maximizeBtn);
 
-        const pinBtn = document.createElement('button');
-        pinBtn.className = 'pane-btn' + (layout.pinned ? ' btn-active' : '');
-        pinBtn.title = layout.pinned ? '位置固定を解除' : '位置を固定';
-        pinBtn.textContent = layout.pinned ? '📌' : '📍';
-        pinBtn.onclick = (e) => { e.stopPropagation(); window.togglePinPane(index); };
-        controls.appendChild(pinBtn);
+            const pinBtn = document.createElement('button');
+            pinBtn.className = 'pane-btn' + (layout.pinned ? ' btn-active' : '');
+            pinBtn.title = layout.pinned ? '位置固定を解除' : '位置を固定';
+            pinBtn.textContent = layout.pinned ? '📌' : '📍';
+            pinBtn.onclick = (e) => { e.stopPropagation(); window.togglePinPane(paneIndex); };
+            controls.appendChild(pinBtn);
+        }
 
         // Mode toggle button
         if (!['canvas', 'dashboard', 'timer'].includes(pane.type)) {
@@ -360,7 +391,7 @@ window.renderPanes = function() {
             modeBtn.className = 'pane-btn' + (pane.type === 'preview' ? ' btn-active' : '');
             modeBtn.innerHTML = pane.type === 'editor' ? '👁' : '✎';
             modeBtn.title = pane.type === 'editor' ? 'プレビューに切替' : '編集に切替';
-            modeBtn.onclick = (e) => { e.stopPropagation(); window.togglePaneMode(index); };
+            modeBtn.onclick = (e) => { e.stopPropagation(); window.togglePaneMode(paneIndex); };
             controls.appendChild(modeBtn);
         }
 
@@ -368,13 +399,13 @@ window.renderPanes = function() {
         privacyBtn.className = 'pane-btn' + (pane.isPrivacy ? ' btn-active' : '');
         privacyBtn.innerHTML = '🛡️';
         privacyBtn.title = pane.isPrivacy ? 'プライバシーシールド解除' : 'プライバシーシールド適用';
-        privacyBtn.onclick = (e) => { e.stopPropagation(); window.togglePanePrivacy(index); };
+        privacyBtn.onclick = (e) => { e.stopPropagation(); window.togglePanePrivacy(paneIndex); };
         controls.appendChild(privacyBtn);
 
         const closeBtn = document.createElement('button');
         closeBtn.className = 'pane-btn';
         closeBtn.innerHTML = '×';
-        closeBtn.onclick = (e) => { e.stopPropagation(); window.closePane(index); };
+        closeBtn.onclick = (e) => { e.stopPropagation(); window.closePane(paneIndex); };
         controls.appendChild(closeBtn);
 
         header.appendChild(titleSpan);
@@ -384,7 +415,7 @@ window.renderPanes = function() {
         // Content
         const content = document.createElement('div');
         content.className = 'pane-content';
-        if (layout.minimized) content.style.display = 'none';
+        if (layout && layout.minimized) content.style.display = 'none';
 
         if (pane.type === 'dashboard') {
             const dashboardContainer = document.createElement('div');
@@ -410,11 +441,11 @@ window.renderPanes = function() {
             // Setup canvas container (scoped per pane to avoid ID collisions)
             const canvasArea = document.createElement('div');
             canvasArea.className = 'pane-canvas canvas-area';
-            canvasArea.dataset.paneIndex = index;
+            canvasArea.dataset.paneIndex = paneIndex;
             canvasArea.dataset.title = pane.title;
-            if (index === state.activePaneIndex) canvasArea.dataset.activeCanvas = 'true';
+            if (paneIndex === state.activePaneIndex) canvasArea.dataset.activeCanvas = 'true';
 
-            if (index === state.activePaneIndex) {
+            if (paneIndex === state.activePaneIndex) {
                 canvasArea.innerHTML = `
                     <div class="canvas-layer">
                         <svg class="canvas-svg"></svg>
@@ -538,14 +569,16 @@ window.renderPanes = function() {
         }
 
         paneEl.appendChild(content);
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'pane-resize-handle';
-        resizeHandle.onpointerdown = (e) => window.startWindowResize(e, index);
-        paneEl.appendChild(resizeHandle);
+        if (isDesktop) {
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'pane-resize-handle';
+            resizeHandle.onpointerdown = (e) => window.startWindowResize(e, paneIndex);
+            paneEl.appendChild(resizeHandle);
+        }
 
         grid.appendChild(paneEl);
 
-        if (!window.__desktopResizeBound) {
+        if (isDesktop && !window.__desktopResizeBound) {
             window.__desktopResizeBound = true;
             window.addEventListener('resize', () => window.renderPanes());
         }

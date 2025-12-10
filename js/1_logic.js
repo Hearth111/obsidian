@@ -16,6 +16,7 @@ window.CONFIG = {
     PANES_KEY: 'obsidian_v35_panes',
     PANE_LAYOUTS_KEY: 'obsidian_v35_pane_layouts',
     DESKTOP_SIZE_KEY: 'obsidian_v35_desktop_size',
+    VIEW_MODE_KEY: 'obsidian_v35_view_mode',
     LAYOUT_TEMPLATES_KEY: 'obsidian_v35_layout_templates'
 };
 
@@ -112,6 +113,7 @@ window.state = {
     isCanvasMode: false,
     isModified: false,
     isSidebarCollapsed: false,
+    viewMode: 'desktop',
 
     // Multi-Pane System
     panes: [], // { id, title, type: 'editor'|'preview'|'canvas' }
