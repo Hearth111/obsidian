@@ -157,6 +157,15 @@ window.showLayoutQuickMenu = function(anchor) {
     if (!menu || !anchor) return;
     menu.innerHTML = '';
 
+    const nextMode = state.viewMode === 'classic' ? 'desktop' : 'classic';
+    const modeItem = document.createElement('div');
+    modeItem.className = 'layout-menu-item';
+    const modeLabel = nextMode === 'desktop' ? '🖥️ OS風モードに切替' : '📝 クラシックモードに切替';
+    const modeMeta = nextMode === 'desktop' ? '複数ウィンドウを並べる' : '単一ペインで切替する';
+    modeItem.innerHTML = `<span>${modeLabel}</span><span class="layout-menu-meta">${modeMeta}</span>`;
+    modeItem.onclick = (e) => { e.stopPropagation(); window.setViewMode(nextMode); menu.style.display = 'none'; };
+    menu.appendChild(modeItem);
+
     state.layoutTemplates.forEach((tmpl, idx) => {
         const item = document.createElement('div');
         item.className = 'layout-menu-item';
