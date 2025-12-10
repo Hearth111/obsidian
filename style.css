@@ -128,6 +128,10 @@ details[open] > summary .folder-icon { transform: rotate(90deg); }
     overflow: hidden;
 }
 
+.workspace-classic.classic-dual {
+    flex-direction: row;
+}
+
 .workspace-classic .classic-pane {
     position: relative;
     width: 100%;
@@ -141,6 +145,11 @@ details[open] > summary .folder-icon { transform: rotate(90deg); }
     border-radius: 10px;
     box-shadow: 0 10px 24px rgba(0,0,0,0.25);
     overflow: hidden;
+}
+
+.workspace-classic.classic-dual .classic-pane {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .desktop-placeholder {
