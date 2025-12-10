@@ -58,6 +58,7 @@ window.initAppData = function () {
     state.layoutTemplates = window.cloneLayoutTemplates(loadedTemplates);
     state.activeLayoutTemplate = Number.isInteger(savedLayout.activeIndex) ? savedLayout.activeIndex : window.DEFAULT_LAYOUT_SETTINGS.activeIndex;
     state.isSidebarCollapsed = localStorage.getItem(window.CONFIG.SIDEBAR_KEY) === '1';
+    state.viewMode = localStorage.getItem(window.CONFIG.VIEW_MODE_KEY) === 'classic' ? 'classic' : 'desktop';
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
     state.clipboardHistory = window.readJson(window.CONFIG.CLIPBOARD_KEY, []);
 
