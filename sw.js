@@ -1,16 +1,14 @@
-const CACHE_NAME = 'obsidian-cache-v1';
+const CACHE_NAME = 'obsidian-cache-v2';
 const OFFLINE_ASSETS = [
   '/',
   '/index.html',
   '/style.css',
   '/js/1_logic.js',
   '/js/2_data.js',
-  '/js/3_canvas.js',
   '/js/4_app.js',
   '/js/5_ui_panes.js',
   '/js/5_ui_navigation.js',
   '/js/5_ui_settings.js',
-  '/js/5_ui_timer.js',
   '/js/6_ui_editor.js',
   '/js/7_ui_nav.js',
   '/manifest.json'

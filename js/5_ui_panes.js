@@ -404,7 +404,7 @@ window.renderPanes = function() {
         }
 
         // Mode toggle button
-        if (!['canvas', 'dashboard', 'timer'].includes(pane.type)) {
+        if (pane.type !== 'dashboard') {
             const modeBtn = document.createElement('button');
             modeBtn.className = 'pane-btn' + (pane.type === 'preview' ? ' btn-active' : '');
             modeBtn.innerHTML = pane.type === 'editor' ? '👁' : '✎';
@@ -455,135 +455,6 @@ window.renderPanes = function() {
             previewDiv.innerHTML = window.parseMarkdown(noteContent);
             window.decoratePreview(previewDiv, pane.title);
             content.appendChild(previewDiv);
-        } else if (pane.type === 'canvas') {
-            // Setup canvas container (scoped per pane to avoid ID collisions)
-            const canvasArea = document.createElement('div');
-            canvasArea.className = 'pane-canvas canvas-area';
-            canvasArea.dataset.paneIndex = paneIndex;
-            canvasArea.dataset.title = pane.title;
-            if (paneIndex === state.activePaneIndex) canvasArea.dataset.activeCanvas = 'true';
-
-            if (paneIndex === state.activePaneIndex) {
-                canvasArea.innerHTML = `
-                    <div class="canvas-layer">
-                        <svg class="canvas-svg"></svg>
-                        <div class="canvas-nodes"></div>
-                    </div>
-                    <div class="pane-canvas-controls">
-                        <button class="btn btn-active cv-mode-pointer" onclick="window.toggleCanvasMode('edit')">❖</button>
-                        <button class="btn cv-mode-pan" onclick="window.toggleCanvasMode('pan')">✋</button>
-                        <span style="border-right:1px solid #666; margin:0 5px;"></span>
-                        <button class="btn" onclick="window.addCanvasGroup()">🔲</button>
-                        <button class="btn" onclick="window.zoomCanvas(0.1)">＋</button>
-                        <button class="btn" onclick="window.zoomCanvas(-0.1)">－</button>
-                        <button class="btn" onclick="window.resetCanvas()">⟲</button>
-                        <span class="canvas-info" style="color:#666; font-size:0.8em; align-self:center; margin-left:5px;"></span>
-                    </div>
-                `;
-                setTimeout(() => {
-                    window.bindCanvasArea(canvasArea);
-                    window.renderCanvas();
-                }, 0);
-            } else {
-                canvasArea.innerHTML = `<div style="padding:20px; color:#666;">(Canvas: Click to activate)</div>`;
-            }
-            content.appendChild(canvasArea);
-        } else if (pane.type === 'timer') {
-            const timerWrap = document.createElement('div');
-            timerWrap.className = 'timer-pane';
-
-            const modeBar = document.createElement('div');
-            modeBar.className = 'timer-mode-bar';
-            const modes = [
-                { id: 'pomodoro', label: '🍅 ポモドーロ' },
-                { id: 'stopwatch', label: '⏱️ ストップウォッチ' },
-                { id: 'countdown', label: '⏳ カウントダウン' },
-                { id: 'clock', label: '🕒 時計' }
-            ];
-            modes.forEach((m) => {
-                const btn = document.createElement('button');
-                btn.className = 'timer-mode-btn';
-                btn.dataset.mode = m.id;
-                btn.textContent = m.label;
-                btn.onclick = (e) => { e.stopPropagation(); window.setTimerMode(m.id); };
-                modeBar.appendChild(btn);
-            });
-            timerWrap.appendChild(modeBar);
-
-            const face = document.createElement('div');
-            face.className = 'timer-face';
-            face.id = 'timer-pane-display';
-            timerWrap.appendChild(face);
-
-            const subline = document.createElement('div');
-            subline.className = 'timer-subline';
-            subline.id = 'timer-pane-subline';
-            timerWrap.appendChild(subline);
-
-            const controls = document.createElement('div');
-            controls.className = 'timer-controls';
-            const startBtn = document.createElement('button');
-            startBtn.className = 'btn btn-primary';
-            startBtn.id = 'timer-btn-start';
-            startBtn.textContent = '▶️ スタート';
-            startBtn.onclick = (e) => { e.stopPropagation(); window.startTimer(); };
-            controls.appendChild(startBtn);
-
-            const pauseBtn = document.createElement('button');
-            pauseBtn.className = 'btn';
-            pauseBtn.id = 'timer-btn-pause';
-            pauseBtn.textContent = '⏸ 一時停止';
-            pauseBtn.onclick = (e) => { e.stopPropagation(); window.pauseTimer(); };
-            controls.appendChild(pauseBtn);
-
-            const resetBtn = document.createElement('button');
-            resetBtn.className = 'btn';
-            resetBtn.id = 'timer-btn-reset';
-            resetBtn.textContent = '🔄 リセット';
-            resetBtn.onclick = (e) => { e.stopPropagation(); window.resetTimer(); };
-            controls.appendChild(resetBtn);
-            timerWrap.appendChild(controls);
-
-            const inputs = document.createElement('div');
-            inputs.className = 'timer-inputs';
-
-            const pomoInput = document.createElement('div');
-            pomoInput.className = 'timer-input';
-            const pomoLabel = document.createElement('label');
-            pomoLabel.textContent = 'ポモドーロ (分)';
-            const pomoField = document.createElement('input');
-            pomoField.type = 'number';
-            pomoField.min = '1';
-            pomoField.step = '1';
-            pomoField.id = 'timer-input-pomodoro';
-            pomoField.onchange = (e) => { e.stopPropagation(); window.updateTimerDuration('pomodoro', e.target.value); };
-            pomoInput.appendChild(pomoLabel);
-            pomoInput.appendChild(pomoField);
-            inputs.appendChild(pomoInput);
-
-            const cdInput = document.createElement('div');
-            cdInput.className = 'timer-input';
-            const cdLabel = document.createElement('label');
-            cdLabel.textContent = 'カウントダウン (分)';
-            const cdField = document.createElement('input');
-            cdField.type = 'number';
-            cdField.min = '1';
-            cdField.step = '1';
-            cdField.id = 'timer-input-countdown';
-            cdField.onchange = (e) => { e.stopPropagation(); window.updateTimerDuration('countdown', e.target.value); };
-            cdInput.appendChild(cdLabel);
-            cdInput.appendChild(cdField);
-            inputs.appendChild(cdInput);
-
-            timerWrap.appendChild(inputs);
-
-            const hint = document.createElement('div');
-            hint.className = 'timer-hint';
-            hint.id = 'timer-pane-hint';
-            timerWrap.appendChild(hint);
-
-            content.appendChild(timerWrap);
-            window.updateTimerUI();
         }
 
         paneEl.appendChild(content);
@@ -723,14 +594,6 @@ window.setActivePane = function(index) {
     const pane = state.panes[index];
     if (pane.type !== 'dashboard') state.currentTitle = pane.title;
     
-    // Canvas Handling: If activating a canvas pane, verify global canvas state matches
-    if (pane.type === 'canvas') {
-        const content = state.notes[pane.title];
-        window.loadCanvasData(content);
-    } else {
-        state.isCanvasMode = false;
-    }
-    
     // Update Header
     const titleInput = document.getElementById('title-input');
     if(titleInput && pane.type !== 'dashboard') titleInput.value = pane.title;
@@ -741,7 +604,7 @@ window.setActivePane = function(index) {
 
 window.toggleDualView = function() {
     const active = state.panes[state.activePaneIndex];
-    if (!active || active.type === 'canvas' || active.type === 'dashboard') return;
+    if (!active || active.type === 'dashboard') return;
 
     let editorIndex = state.panes.findIndex(p => p.title === active.title && p.type === 'editor');
     if (editorIndex === -1) {
@@ -812,12 +675,6 @@ window.closePane = function(index, options = {}) {
     } else {
         state.activePaneIndex = Math.min(state.activePaneIndex, state.panes.length - 1);
         const newActive = state.panes[state.activePaneIndex];
-        if (newActive.type === 'canvas') {
-            const content = state.notes[newActive.title];
-            window.loadCanvasData(content);
-        } else {
-            state.isCanvasMode = false;
-        }
         if (newActive.type !== 'dashboard') {
             state.currentTitle = newActive.title;
             const titleInput = document.getElementById('title-input');
@@ -893,9 +750,7 @@ window.openNoteInNewPane = function(path) {
         alert(`最大${MAX_PANES}画面までです`);
         return;
     }
-    const content = state.notes[path];
-    const type = content.startsWith(window.CANVAS_MARKER) ? 'canvas' : 'editor';
-    const newPane = { id: state.panes.length, title: path, type, isPrivacy: false };
+    const newPane = { id: state.panes.length, title: path, type: 'editor', isPrivacy: false };
     state.panes.push(newPane);
     state.paneSizes.push(1);
     state.paneLayouts.push(window.createPaneLayout(state.panes.length - 1));
@@ -907,8 +762,7 @@ window.openNoteInNewPane = function(path) {
 
 window.togglePaneMode = function(index) {
     const pane = state.panes[index];
-    if (!pane) return;
-    if (pane.type === 'canvas' || pane.type === 'dashboard' || pane.type === 'timer') return; // Non-note panes have no toggle
+    if (!pane || pane.type === 'dashboard') return; // Non-note panes have no toggle
     pane.type = pane.type === 'editor' ? 'preview' : 'editor';
     window.renderPanes();
 };
@@ -929,10 +783,10 @@ window.updateModeToggleButton = function() {
     const pane = state.panes[state.activePaneIndex];
     if (!btn) return;
 
-    if (!pane || pane.type === 'canvas' || pane.type === 'dashboard' || pane.type === 'timer') {
+    if (!pane || pane.type === 'dashboard') {
         btn.textContent = '👁 プレビュー';
         btn.classList.remove('btn-active');
-        btn.disabled = !pane || pane.type === 'canvas' || pane.type === 'dashboard' || pane.type === 'timer';
+        btn.disabled = !pane || pane.type === 'dashboard';
         return;
     }
 
@@ -951,7 +805,7 @@ window.updateDualViewButton = function() {
     const active = state.panes[state.activePaneIndex];
     if (!btn) return;
 
-    btn.disabled = !active || (active.type === 'canvas' || active.type === 'dashboard' || active.type === 'timer');
+    btn.disabled = !active || active.type === 'dashboard';
     if (btn.disabled) {
         btn.classList.remove('btn-active');
         return;

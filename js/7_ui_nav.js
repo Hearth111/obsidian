@@ -330,7 +330,6 @@ window.openPhraseLinks = function(rawPhrase) {
 
     const results = Object.entries(state.notes)
         .filter(([title]) => !title.endsWith('/' + window.FOLDER_MARKER))
-        .filter(([_, content]) => !content.startsWith(window.CANVAS_MARKER))
         .map(([title, content]) => {
             const matches = [];
             let idx = content.indexOf(phraseText);
@@ -395,14 +394,13 @@ window.closeSwitcher = function() {
     els.switcherOverlay.style.display = 'none'; 
     // アクティブなエディタがあればフォーカスを戻す
     const editor = window.getActiveEditor && window.getActiveEditor();
-    if(editor && !state.isCanvasMode) editor.focus(); 
+    if(editor) editor.focus();
 };
 
 window.updateSwitcher = function() {
     const q = els.switcherInput.value.toLowerCase().trim();
-    const keys = Object.keys(state.notes).filter(k => 
-        !k.endsWith(window.FOLDER_MARKER) && 
-        !state.notes[k].startsWith(window.CANVAS_MARKER)
+    const keys = Object.keys(state.notes).filter(k =>
+        !k.endsWith(window.FOLDER_MARKER)
     ).sort();
     
     state.switcherResults = q ? keys.filter(k => k.toLowerCase().includes(q)) : keys.slice(0, 20);
@@ -432,7 +430,7 @@ window.openCommandPalette = function() { window.closeSwitcher(); els.commandOver
 window.closeCommandPalette = function() { 
     els.commandOverlay.style.display = 'none'; 
     const editor = window.getActiveEditor && window.getActiveEditor();
-    if(editor && !state.isCanvasMode) editor.focus(); 
+    if(editor) editor.focus();
 };
 window.updateCommandPalette = function() {
     const q = els.commandInput.value.toLowerCase().trim();

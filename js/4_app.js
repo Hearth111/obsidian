@@ -25,7 +25,7 @@ window.initAppData = function () {
         templateFolderInput: id('template-folder-input'), templateIncludeSub: id('template-include-sub'), templateGrouping: id('template-grouping'), templateSpacing: id('template-spacing'),
         layoutTemplateLines: id('layout-template-lines'), layoutTemplateActive: id('layout-template-active'),
         phraseOverlay: id('phrase-overlay'), phraseList: id('phrase-list'), phraseTitle: id('phrase-title'),
-        timer: id('timer-display'), wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
+        wordCount: id('word-count'), taskStats: id('task-stats'), progressFill: id('progress-fill'),
         backupStatus: id('backup-status'),
         selectedCount: id('selected-count'),
         sidebarToggle: id('sidebar-toggle'),
@@ -82,7 +82,6 @@ window.initAppData = function () {
     window.renderTabBar();
     window.applySidebarState();
     window.updateLayoutButtonLabel();
-    window.updateTimerUI();
 
     // 5. 履歴・イベント設定・その他
     window.persistTabs();
@@ -111,7 +110,7 @@ function setupEventListeners() {
     setupNavigationHandlers();
     setupFormattingMenuHandlers();
     setupModeAndLayoutHandlers();
-    setupTimerAndOverlayHandlers();
+    setupOverlayHandlers();
     setupSettingsHandlers();
 }
 
@@ -188,7 +187,6 @@ function setupNavigationHandlers() {
 }
 
 function setupFormattingMenuHandlers() {
-    document.getElementById('btn-table').onclick = window.insertTable;
     document.getElementById('btn-template').onclick = (e) => {
         e.stopPropagation();
         const m = document.getElementById('template-menu');
@@ -215,9 +213,7 @@ function setupModeAndLayoutHandlers() {
     if (layoutSelect) layoutSelect.onchange = (e) => window.setActiveLayoutTemplate(parseInt(e.target.value, 10) || 0, { persist: true });
 }
 
-function setupTimerAndOverlayHandlers() {
-    els.timer.onclick = () => window.showTimerQuickMenu(els.timer);
-
+function setupOverlayHandlers() {
     document.onclick = (e) => {
         if(e.target === els.switcherOverlay) window.closeSwitcher();
         if(e.target === els.commandOverlay) window.closeCommandPalette();
@@ -226,7 +222,6 @@ function setupTimerAndOverlayHandlers() {
         document.getElementById('context-menu').style.display = 'none';
         document.getElementById('template-menu').style.display = 'none';
         window.hideLayoutMenu();
-        window.hideTimerMenu();
         if (!e.target.closest('#format-menu')) window.hideFormatMenu();
     };
     document.onkeydown = window.handleGlobalKeys;
@@ -288,13 +283,8 @@ window.loadNote = function(title, isHistoryNav = false) {
     state.panes[state.activePaneIndex].title = title;
 
     const content = state.notes[title] || "";
-    if (content.startsWith(window.CANVAS_MARKER)) {
-        state.panes[state.activePaneIndex].type = 'canvas';
-        window.loadCanvasData(content);
-    } else {
-        if (state.panes[state.activePaneIndex].type === 'canvas' || state.panes[state.activePaneIndex].type === 'dashboard') {
-            state.panes[state.activePaneIndex].type = 'editor';
-        }
+    if (state.panes[state.activePaneIndex].type === 'dashboard') {
+        state.panes[state.activePaneIndex].type = 'editor';
     }
 
     if (!isHistoryNav && title !== state.currentTitle) {
