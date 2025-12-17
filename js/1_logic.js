@@ -50,7 +50,6 @@ window.showBackupStatus = function(message, duration = 3000) {
     }
 };
 
-window.CANVAS_MARKER = '---type: canvas---';
 window.FOLDER_MARKER = '.keep';
 
 window.DEFAULT_KEYMAP = {
@@ -79,11 +78,6 @@ window.DEFAULT_LAYOUT_SETTINGS = {
     ]
 };
 
-window.CANVAS_COLORS = [
-    'rgba(127, 109, 242, 0.1)', 'rgba(229, 57, 53, 0.1)', 'rgba(255, 179, 0, 0.1)',
-    'rgba(67, 160, 71, 0.1)', 'rgba(3, 169, 244, 0.1)', 'rgba(117, 117, 117, 0.1)'
-];
-
 // --- Global State Initialization ---
 window.state = {
     notes: {},
@@ -110,13 +104,12 @@ window.state = {
     // View Modes & Layout
     isPrivacy: false,
     showCompletedTasks: false,
-    isCanvasMode: false,
     isModified: false,
     isSidebarCollapsed: false,
     viewMode: 'desktop',
 
     // Multi-Pane System
-    panes: [], // { id, title, type: 'editor'|'preview'|'canvas' }
+    panes: [], // { id, title, type: 'editor'|'preview' }
     paneSizes: [],
     paneLayouts: [], // { x, y, width, height, z, minimized, maximized, restore? }
     desktopSize: null,
@@ -125,8 +118,6 @@ window.state = {
     headingCollapse: {},
 
     // Canvas State (Shared or active)
-    canvasData: { nodes: [], edges: [], x: 0, y: 0, zoom: 1 },
-    canvasMode: 'edit',
     
     // Interaction Flags
     switcherCallback: null,
@@ -135,14 +126,6 @@ window.state = {
     draggedItem: null,
     draggingPaneIndex: null,
     contextTarget: null,
-    timerInterval: null,
-    timerTime: 25 * 60,
-    pomodoroSeconds: 25 * 60,
-    countdownSeconds: 10 * 60,
-    stopwatchSeconds: 0,
-    timerMode: 'pomodoro',
-    timerLastTick: null,
-    isTimerRunning: false,
     switcherResults: [],
     switcherIndex: 0,
     commandResults: [],
@@ -153,17 +136,14 @@ window.state = {
 window.CORE_COMMANDS = [
     { id: 'new-note', name: '新規ノート作成', handler: () => window.createNewNote() },
     { id: 'new-folder', name: '新規フォルダ作成', handler: () => window.createNewFolder() },
-    { id: 'new-canvas', name: '新規キャンバス作成', handler: () => window.createNewCanvas() },
     { id: 'split-pane', name: '2画面表示 (編集+プレビュー)', handler: () => window.toggleDualView() },
     { id: 'toggle-preview', name: 'プレビュー切替 (アクティブな画面)', handler: () => window.togglePreviewMode() },
     { id: 'open-dashboard', name: '全タスクを表示', handler: () => window.toggleDashboard() },
-    { id: 'insert-table', name: '表を挿入', handler: () => window.insertTable() },
     { id: 'toggle-privacy', name: 'プライバシー保護モード切替', handler: () => window.togglePrivacy() },
     { id: 'open-today', name: '今日のノートを開く', handler: () => window.openToday() },
     { id: 'export-data', name: '全データをダウンロード (JSON)', handler: () => window.exportData() },
     { id: 'save-data', name: 'JSONを保存 (Ctrl+S)', handler: () => window.exportData() },
     { id: 'download-md', name: '現在のノートをダウンロード (MD)', handler: () => window.downloadNote() },
-    { id: 'toggle-timer', name: '⏱️ タイマーを開く', handler: () => window.openTimerPane() },
     { id: 'go-back', name: '前に戻る', handler: () => window.goBack() },
     { id: 'go-forward', name: '次に進む', handler: () => window.goForward() },
     { id: 'open-switcher', name: 'ファイルを開く...', handler: () => window.openSwitcher() },

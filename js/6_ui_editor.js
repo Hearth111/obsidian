@@ -53,16 +53,6 @@ window.handlePaste = async function (e) {
     }
 };
 
-window.insertTable = function() {
-    const i = prompt("行数,列数", "3,3");
-    if (!i) return;
-    const [r, c] = i.split(/[,\sx]+/).map(Number);
-    if (!r || !c) return;
-    let m = "\n| " + Array(c).fill("Header").join(" | ") + " |\n| " + Array(c).fill("---").join(" | ") + " |\n";
-    for (let j = 0; j < r; j++) m += "| " + Array(c).fill("Cell").join(" | ") + " |\n";
-    document.execCommand('insertText', false, m + "\n");
-};
-
 window.handleEditorKeydown = function(e) {
     if (e.key === 'Enter') {
         const target = e.target;
