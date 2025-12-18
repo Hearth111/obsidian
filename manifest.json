@@ -1,13 +1,13 @@
 {
-  "name": "Local Obsidian",
-  "short_name": "Obsidian",
+  "name": "offsidian",
+  "short_name": "offsidian",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#20232a",
   "theme_color": "#20232a",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>💎</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🗝</text></svg>",
       "sizes": "100x100",
       "type": "image/svg+xml"
     }
