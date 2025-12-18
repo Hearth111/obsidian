@@ -157,20 +157,41 @@ window.showLayoutQuickMenu = function(anchor) {
     if (!menu || !anchor) return;
     menu.innerHTML = '';
 
-    const nextMode = state.viewMode === 'classic' ? 'desktop' : 'classic';
-    const modeItem = document.createElement('div');
-    modeItem.className = 'layout-menu-item';
-    const modeLabel = nextMode === 'desktop' ? '🖥️ OS風モードに切替' : '📝 クラシックモードに切替';
-    const modeMeta = nextMode === 'desktop' ? '複数ウィンドウを並べる' : '単一ペインで切替する';
-    modeItem.innerHTML = `<span>${modeLabel}</span><span class="layout-menu-meta">${modeMeta}</span>`;
-    modeItem.onclick = (e) => { e.stopPropagation(); window.setViewMode(nextMode); menu.style.display = 'none'; };
-    menu.appendChild(modeItem);
+    const addSectionTitle = (label) => {
+        const title = document.createElement('div');
+        title.className = 'layout-menu-title';
+        title.textContent = label;
+        menu.appendChild(title);
+    };
+
+    const addDivider = () => {
+        const divider = document.createElement('div');
+        divider.className = 'layout-menu-divider';
+        menu.appendChild(divider);
+    };
+
+    addSectionTitle('表示モード');
+    ['classic', 'desktop'].forEach((mode) => {
+        const isActive = state.viewMode === mode;
+        const item = document.createElement('div');
+        item.className = 'layout-menu-item' + (isActive ? ' active' : '');
+        const label = mode === 'desktop' ? '🖥️ OS風モード' : '📝 クラシックモード';
+        const meta = mode === 'desktop' ? '複数ウィンドウを並べる' : '単一ペインで切替する';
+        item.innerHTML = `<span>${label}</span><span class="layout-menu-meta">${isActive ? '使用中' : meta}</span>`;
+        item.onclick = (e) => { e.stopPropagation(); window.setViewMode(mode); menu.style.display = 'none'; };
+        menu.appendChild(item);
+    });
+
+    addDivider();
+    addSectionTitle('レイアウトテンプレート');
 
     state.layoutTemplates.forEach((tmpl, idx) => {
         const item = document.createElement('div');
-        item.className = 'layout-menu-item';
+        const isActive = idx === state.activeLayoutTemplate;
+        item.className = 'layout-menu-item' + (isActive ? ' active' : '');
         const meta = window.describeLayoutRatios(tmpl).join(' / ');
-        item.innerHTML = `<span>${tmpl.name || `テンプレート ${idx + 1}`}</span><span class="layout-menu-meta">${meta}</span>`;
+        const label = tmpl.name || `テンプレート ${idx + 1}`;
+        item.innerHTML = `<span>${label}</span><span class="layout-menu-meta">${isActive ? '使用中' : meta}</span>`;
         item.onclick = (e) => {
             e.stopPropagation();
             window.setActiveLayoutTemplate(idx, { persist: true });
