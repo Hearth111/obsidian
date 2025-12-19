@@ -10,6 +10,48 @@ window.getActiveEditor = () => {
     return pane ? pane.querySelector('.pane-editor') : null;
 };
 
+window.getPdfUrl = function(title) {
+    const entry = state.pdfNotes && state.pdfNotes[title];
+    return entry ? entry.url : null;
+};
+
+window.openPdfExternally = function(title) {
+    const url = window.getPdfUrl(title);
+    if (url) {
+        window.open(url, '_blank', 'noreferrer');
+    } else {
+        alert('PDFが見つかりません');
+    }
+};
+
+window.loadPdfCatalog = async function() {
+    try {
+        const res = await fetch('pdf/manifest.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`Failed to load manifest: ${res.status}`);
+        const manifest = await res.json();
+        const entries = Array.isArray(manifest.files) ? manifest.files : [];
+        const pdfMap = {};
+        entries.forEach((item) => {
+            if (!item) return;
+            const file = typeof item === 'string' ? item : (item.file || item.path || item.url || '');
+            if (!file) return;
+            const cleanFile = file.replace(/^\\//, '');
+            const url = (typeof item === 'object' && item.url) ? item.url : `pdf/${cleanFile}`;
+            const titleBase = (typeof item === 'object' && item.title) ? item.title : cleanFile;
+            const title = `PDF/${titleBase.replace(/\\.pdf$/i, '')}`;
+            pdfMap[title] = { url, file: cleanFile };
+        });
+        state.pdfNotes = pdfMap;
+    } catch (err) {
+        console.warn('PDF manifest の読込に失敗しました', err);
+        state.pdfNotes = {};
+    } finally {
+        window.renderSidebar();
+        window.renderTabBar();
+        window.renderPanes();
+    }
+};
+
 // アプリケーション初期化のメイン関数
 window.initAppData = function () {
     // 1. DOM要素の参照を取得 (elsを初期化)
@@ -61,11 +103,12 @@ window.initAppData = function () {
     state.viewMode = localStorage.getItem(window.CONFIG.VIEW_MODE_KEY) === 'classic' ? 'classic' : 'desktop';
     state.currentTitle = localStorage.getItem(window.CONFIG.LAST_OPEN_KEY) || "Home";
     state.clipboardHistory = window.readJson(window.CONFIG.CLIPBOARD_KEY, []);
+    window.loadPdfCatalog();
 
     // タブの復元
     const savedTabs = window.readJson(window.CONFIG.TABS_KEY, null);
     if (Array.isArray(savedTabs) && savedTabs.length) {
-        state.openTabs = Array.from(new Set(savedTabs.filter(t => state.notes[t])));
+        state.openTabs = Array.from(new Set(savedTabs.filter(t => state.notes[t] || t.startsWith('PDF/'))));
     }
 
     // 3. ペイン(画面)の初期化
@@ -257,11 +300,12 @@ window.persistTabs = function() {
 };
 
 window.loadNote = function(title, isHistoryNav = false) {
+    const isPdf = window.isPdfTitle(title);
     if (state.activePaneIndex === -1) {
         state.activePaneIndex = 0;
     }
     if (!state.panes[state.activePaneIndex]) {
-        state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor', isPrivacy: false };
+        state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: isPdf ? 'pdf' : 'editor', isPrivacy: false };
         window.ensurePaneLayout(state.activePaneIndex);
     }
 
@@ -278,12 +322,12 @@ window.loadNote = function(title, isHistoryNav = false) {
         return;
     }
 
-    if (!state.panes[state.activePaneIndex]) state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: 'editor', isPrivacy: false };
+    if (!state.panes[state.activePaneIndex]) state.panes[state.activePaneIndex] = { id: state.activePaneIndex, title: title, type: isPdf ? 'pdf' : 'editor', isPrivacy: false };
     if (typeof state.panes[state.activePaneIndex].isPrivacy === 'undefined') state.panes[state.activePaneIndex].isPrivacy = false;
     state.panes[state.activePaneIndex].title = title;
-
-    const content = state.notes[title] || "";
-    if (state.panes[state.activePaneIndex].type === 'dashboard') {
+    if (isPdf) {
+        state.panes[state.activePaneIndex].type = 'pdf';
+    } else if (state.panes[state.activePaneIndex].type === 'dashboard') {
         state.panes[state.activePaneIndex].type = 'editor';
     }
 

@@ -404,7 +404,7 @@ window.renderPanes = function() {
         }
 
         // Mode toggle button
-        if (pane.type !== 'dashboard') {
+        if (pane.type !== 'dashboard' && pane.type !== 'pdf') {
             const modeBtn = document.createElement('button');
             modeBtn.className = 'pane-btn' + (pane.type === 'preview' ? ' btn-active' : '');
             modeBtn.innerHTML = pane.type === 'editor' ? '👁' : '✎';
@@ -455,6 +455,28 @@ window.renderPanes = function() {
             previewDiv.innerHTML = window.parseMarkdown(noteContent);
             window.decoratePreview(previewDiv, pane.title);
             content.appendChild(previewDiv);
+        } else if (pane.type === 'pdf') {
+            const pdfContainer = document.createElement('div');
+            pdfContainer.className = 'pane-pdf';
+            const pdfUrl = window.getPdfUrl ? window.getPdfUrl(pane.title) : null;
+            if (pdfUrl) {
+                const objectEl = document.createElement('object');
+                objectEl.className = 'pdf-frame';
+                objectEl.type = 'application/pdf';
+                objectEl.data = pdfUrl;
+                objectEl.innerHTML = `<div class=\"pdf-fallback\">PDF を読み込めません。<a href=\"${pdfUrl}\" target=\"_blank\" rel=\"noreferrer\">別タブで開く</a></div>`;
+                pdfContainer.appendChild(objectEl);
+                const openLink = document.createElement('a');
+                openLink.href = pdfUrl;
+                openLink.target = '_blank';
+                openLink.rel = 'noreferrer';
+                openLink.className = 'pdf-open-link';
+                openLink.textContent = '🔗 新しいタブで開く';
+                pdfContainer.appendChild(openLink);
+            } else {
+                pdfContainer.innerHTML = '<div class=\"pdf-fallback\">PDF 情報が見つかりません。</div>';
+            }
+            content.appendChild(pdfContainer);
         }
 
         paneEl.appendChild(content);
@@ -604,7 +626,7 @@ window.setActivePane = function(index) {
 
 window.toggleDualView = function() {
     const active = state.panes[state.activePaneIndex];
-    if (!active || active.type === 'dashboard') return;
+    if (!active || active.type === 'dashboard' || active.type === 'pdf') return;
 
     let editorIndex = state.panes.findIndex(p => p.title === active.title && p.type === 'editor');
     if (editorIndex === -1) {
@@ -647,6 +669,7 @@ window.toggleDualView = function() {
 
 window.refreshPreviewForTitle = function(title) {
     if (!title) return;
+    if (window.isPdfTitle(title)) return;
     state.panes.forEach((pane, idx) => {
         if (pane.type !== 'preview' || pane.title !== title) return;
         const previewEl = document.querySelector(`#pane-${idx} .pane-preview`);
@@ -740,7 +763,7 @@ window.loadNoteIntoPane = function(index, title) {
 };
 
 window.openNoteInNewPane = function(path) {
-    if (!state.notes[path]) return;
+    if (!state.notes[path] && !window.isPdfTitle(path)) return;
     const existingIndex = window.findExistingPaneIndex(path);
     if (existingIndex !== -1) {
         window.setActivePane(existingIndex);
@@ -750,7 +773,8 @@ window.openNoteInNewPane = function(path) {
         alert(`最大${MAX_PANES}画面までです`);
         return;
     }
-    const newPane = { id: state.panes.length, title: path, type: 'editor', isPrivacy: false };
+    const paneType = window.isPdfTitle(path) ? 'pdf' : 'editor';
+    const newPane = { id: state.panes.length, title: path, type: paneType, isPrivacy: false };
     state.panes.push(newPane);
     state.paneSizes.push(1);
     state.paneLayouts.push(window.createPaneLayout(state.panes.length - 1));
@@ -762,7 +786,7 @@ window.openNoteInNewPane = function(path) {
 
 window.togglePaneMode = function(index) {
     const pane = state.panes[index];
-    if (!pane || pane.type === 'dashboard') return; // Non-note panes have no toggle
+    if (!pane || pane.type === 'dashboard' || pane.type === 'pdf') return; // Non-note panes have no toggle
     pane.type = pane.type === 'editor' ? 'preview' : 'editor';
     window.renderPanes();
 };
@@ -783,10 +807,10 @@ window.updateModeToggleButton = function() {
     const pane = state.panes[state.activePaneIndex];
     if (!btn) return;
 
-    if (!pane || pane.type === 'dashboard') {
+    if (!pane || pane.type === 'dashboard' || pane.type === 'pdf') {
         btn.textContent = '👁 プレビュー';
         btn.classList.remove('btn-active');
-        btn.disabled = !pane || pane.type === 'dashboard';
+        btn.disabled = !pane || pane.type === 'dashboard' || pane.type === 'pdf';
         return;
     }
 
@@ -805,7 +829,7 @@ window.updateDualViewButton = function() {
     const active = state.panes[state.activePaneIndex];
     if (!btn) return;
 
-    btn.disabled = !active || active.type === 'dashboard';
+    btn.disabled = !active || active.type === 'dashboard' || active.type === 'pdf';
     if (btn.disabled) {
         btn.classList.remove('btn-active');
         return;
