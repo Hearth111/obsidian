@@ -11,6 +11,7 @@ const OFFLINE_ASSETS = [
   '/js/5_ui_settings.js',
   '/js/6_ui_editor.js',
   '/js/7_ui_nav.js',
+  '/pdf/manifest.json',
   '/manifest.json'
 ];
 

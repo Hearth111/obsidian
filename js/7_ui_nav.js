@@ -18,6 +18,16 @@ window.renderSidebar = function() {
             return acc[part];
         }, tree);
     });
+    Object.keys(state.pdfNotes || {}).sort().forEach(k => {
+        k.split('/').reduce((acc, part, i, arr) => {
+            if (!acc[part]) acc[part] = { __path: arr.slice(0, i + 1).join('/') };
+            if (i === arr.length - 1) {
+                acc[part].__isFile = true;
+                acc[part].__isPdf = true;
+            }
+            return acc[part];
+        }, tree);
+    });
 
     els.fileTree.appendChild(window.createTreeDom(tree));
     
@@ -25,13 +35,15 @@ window.renderSidebar = function() {
     const bl = document.getElementById('bookmark-list');
     bl.innerHTML = "";
     state.bookmarks.forEach(p => {
-        if(state.notes[p]) {
+        const isPdf = window.isPdfTitle(p);
+        if(state.notes[p] || isPdf) {
             const d = document.createElement('div');
             d.className = 'tree-item';
-            d.innerHTML = `<span style="color:var(--bookmark-color)">★</span> ${p.split('/').pop()}`;
+            const icon = isPdf ? '📑' : '★';
+            d.innerHTML = `<span style="color:var(--bookmark-color)">${icon}</span> ${p.split('/').pop()}`;
             if(p === state.currentTitle) d.classList.add('active');
             d.onclick = () => window.openNoteInNewPane(p);
-            d.oncontextmenu = (e) => window.showContextMenu(e, {type:'file', path:p});
+            d.oncontextmenu = (e) => window.showContextMenu(e, {type: isPdf ? 'pdf' : 'file', path:p});
             bl.appendChild(d);
         }
     });
@@ -50,6 +62,7 @@ window.createTreeDom = function(node) {
 
         const item = node[k];
         const li = document.createElement('li');
+        const isPdf = !!item.__isPdf;
         
         // 子要素（フォルダやファイル）を持っているか判定
         const childrenKeys = Object.keys(item).filter(key => key !== '__path' && key !== '__isFile');
@@ -60,11 +73,11 @@ window.createTreeDom = function(node) {
         if (isFile && !hasChildren) { 
             const d = document.createElement('div');
             d.className = 'tree-item';
-            d.textContent = k;
+            d.textContent = (isPdf ? '📑 ' : '') + k;
             if (item.__path === state.currentTitle) d.classList.add('active');
             
             d.onclick = () => window.openNoteInNewPane(item.__path);
-            d.oncontextmenu = (e) => window.showContextMenu(e, {type:'file', path:item.__path});
+            d.oncontextmenu = (e) => window.showContextMenu(e, {type: isPdf ? 'pdf' : 'file', path:item.__path});
             
             d.draggable = true;
             d.ondragstart = (e) => { e.stopPropagation(); state.draggedItem = item.__path; };
@@ -164,7 +177,16 @@ window.showContextMenu = function(e, target) {
         window.addMenu(m, "＋ 新規フォルダ", () => window.createNewFolder());
     } else {
         const { type, path } = target;
-        if (type === 'file') {
+        if (type === 'pdf') {
+            const isBm = state.bookmarks.includes(path);
+            window.addMenu(m, "🔗 別タブで開く", () => window.openPdfExternally(path));
+            window.addMenu(m, isBm ? "★ 解除" : "★ ブックマーク", () => {
+                if(isBm) state.bookmarks = state.bookmarks.filter(b => b !== path);
+                else state.bookmarks.push(path);
+                window.writeJson(window.CONFIG.BOOKMARKS_KEY, state.bookmarks);
+                window.renderSidebar();
+            });
+        } else if (type === 'file') {
             const isBm = state.bookmarks.includes(path);
             window.addMenu(m, isBm ? "★ 解除" : "★ ブックマーク", () => {
                 if(isBm) state.bookmarks = state.bookmarks.filter(b => b !== path);
@@ -300,8 +322,10 @@ window.handleSearch = function() {
     if (searchDebounce) clearTimeout(searchDebounce);
     searchDebounce = setTimeout(async () => {
         const matches = await window.searchNotes(q);
+        const pdfMatches = Object.keys(state.pdfNotes || {}).filter(p => p.toLowerCase().includes(q));
+        const combined = [...new Set([...matches, ...pdfMatches])];
         list.innerHTML = "";
-        matches.slice(0, 120).forEach(p => {
+        combined.slice(0, 120).forEach(p => {
             const d = document.createElement('div');
             d.className = 'tree-item';
             d.textContent = p;
@@ -399,9 +423,11 @@ window.closeSwitcher = function() {
 
 window.updateSwitcher = function() {
     const q = els.switcherInput.value.toLowerCase().trim();
-    const keys = Object.keys(state.notes).filter(k =>
+    const noteKeys = Object.keys(state.notes).filter(k =>
         !k.endsWith(window.FOLDER_MARKER)
-    ).sort();
+    );
+    const pdfKeys = Object.keys(state.pdfNotes || {});
+    const keys = [...noteKeys, ...pdfKeys].sort();
     
     state.switcherResults = q ? keys.filter(k => k.toLowerCase().includes(q)) : keys.slice(0, 20);
     state.switcherIndex = 0;

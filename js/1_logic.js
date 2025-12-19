@@ -82,6 +82,7 @@ window.DEFAULT_LAYOUT_SETTINGS = {
 window.state = {
     notes: {},
     images: {},
+    pdfNotes: {},
     expandedFolders: {},
     bookmarks: [],
     keymap: window.DEFAULT_KEYMAP,
@@ -131,6 +132,10 @@ window.state = {
     commandResults: [],
     commandIndex: 0,
     activeSelectionTarget: null
+};
+
+window.isPdfTitle = function(title) {
+    return !!(state.pdfNotes && state.pdfNotes[title]);
 };
 
 window.CORE_COMMANDS = [
